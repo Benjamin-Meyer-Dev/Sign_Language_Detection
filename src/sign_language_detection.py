@@ -1,10 +1,15 @@
 import cv2
 import os
 import string
+import sys
 
 import mediapipe as mp
 import numpy as np
 import tensorflow as tf
+
+from gui import GUI
+
+from PyQt5.QtWidgets import QApplication
 
 from tensorflow.keras.layers import Dense, Flatten
 from tensorflow.keras.models import Sequential
@@ -19,12 +24,13 @@ hands = mp_hands.Hands(min_detection_confidence=0.7, min_tracking_confidence=0.7
 
 DATASET_DIR = "ASL Dataset"
 MODEL_DIR = "ASL AI Model"
-ACTIONS = {i: letter for i, letter in enumerate(string.ascii_uppercase[:5])}
+LETTER_EXAMPLES_DIR = "Letter Examples"
+LETTERS = {i: letter for i, letter in enumerate(string.ascii_uppercase[:5])}
 
-for letter in ACTIONS.values():
+for letter in LETTERS.values():
     os.makedirs(os.path.join(DATASET_DIR, letter), exist_ok=True)
 
-capture_counts = {letter: len(os.listdir(os.path.join(DATASET_DIR, letter))) for letter in ACTIONS.values()}
+capture_counts = {letter: len(os.listdir(os.path.join(DATASET_DIR, letter))) for letter in LETTERS.values()}
 
 #=============================================================================================================================================
 
@@ -57,12 +63,12 @@ def collect_data():
                     x.append(landmarks)
                     y.append(action)
                     
-                    action_dir = os.path.join(DATASET_DIR, ACTIONS[action])
+                    action_dir = os.path.join(DATASET_DIR, LETTERS[action])
                     frame_filename = f"{len(os.listdir(action_dir)) + 1}.npy"
                     
                     np.save(os.path.join(action_dir, frame_filename), landmarks)
                     
-                    print(f"Captured {ACTIONS[action]}: {frame_filename}")
+                    print(f"Captured {LETTERS[action]}: {frame_filename}")
 
         cv2.imshow("Sign Language Data Collection", frame)
         
@@ -73,11 +79,11 @@ def collect_data():
     cv2.destroyAllWindows()
 
 #=============================================================================================================================================
-    
+
 def load_dataset():
     x, y = [], []
     
-    for label, letter in ACTIONS.items():
+    for label, letter in LETTERS.items():
         letter_dir = os.path.join(DATASET_DIR, letter)
         
         for file in os.listdir(letter_dir):
@@ -94,7 +100,7 @@ def create_model():
         Flatten(input_shape=(21, 3)),
         Dense(128, activation='relu'),
         Dense(64, activation='relu'),
-        Dense(len(ACTIONS), activation='softmax')
+        Dense(len(LETTERS), activation='softmax')
     ])
     
     model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
@@ -119,7 +125,7 @@ def train_model():
     model.save(os.path.join(MODEL_DIR, "asl_model.h5"))
     
     print("Model trained and saved!")
-    
+
 #=============================================================================================================================================
 
 def live_detection():
@@ -144,7 +150,7 @@ def live_detection():
                 landmarks = np.array([[lm.x, lm.y, lm.z] for lm in hand_landmarks.landmark]).reshape(1, 21, 3)
                 
                 prediction = model.predict(landmarks)
-                action = ACTIONS[np.argmax(prediction)]
+                action = LETTERS[np.argmax(prediction)]
                 
                 cv2.putText(frame, action, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
     
@@ -158,28 +164,10 @@ def live_detection():
 
 #=============================================================================================================================================
 
-def main():
-    os.system('cls' if os.name == 'nt' else 'clear')
-    
-    print("Choose an option:\n")
-    print("1: Collect Data")
-    print("2: Train Model")
-    print("3: Run Detection")
-    
-    choice = input("\nEnter your choice: ")
-    
-    if choice == '1':
-        collect_data()
-    elif choice == '2':
-        train_model()
-    elif choice == '3':
-        live_detection()
-    else:
-        print("Invalid choice!")
-        
-#=============================================================================================================================================
-
 if __name__ == "__main__":
-    main()
+    app = QApplication(sys.argv)
+    window = GUI()
+    window.show()
+    sys.exit(app.exec_())
 
 #=============================================================================================================================================
