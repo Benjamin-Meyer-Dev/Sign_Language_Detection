@@ -1,217 +1,447 @@
 import cv2
-import constants
-import json
+import Constants
+import datetime
 import os
-
 import sqlite3
-import time
+import sys
+import threading
 
-import numpy as np
-import tensorflow as tf
+import mediapipe as mp
 
-from tensorflow.keras.layers import Dense, Flatten
-from tensorflow.keras.models import Sequential
+from PyQt5.QtCore import Qt, QSize, QTimer
+from PyQt5.QtGui import QIcon, QImage, QPixmap
+from PyQt5.QtWidgets import QApplication, QComboBox, QHBoxLayout, QLabel, QMainWindow, QPushButton, QVBoxLayout, QWidget
 
-#=============================================================================================================================================
-
-#Function to access the database for collection count
-def getCollectionCount(letter):
-    conn = sqlite3.connect(constants.DATABASE_PATH)
-    cursor = conn.cursor()
-    
-    try:
-        cursor.execute(f"SELECT COUNT(*) FROM {letter}")
-        result = cursor.fetchone()[0]
-    finally:
-        conn.close()
-
-    return result
+from Video_Outputs import liveDetection
+from Video_Outputs import dataCollection
+from Video_Outputs import noDetection
 
 #=============================================================================================================================================
 
-#Function to get the landmark data from the database
-def getLandmarks():
-    conn = sqlite3.connect(constants.DATABASE_PATH)
-    cursor = conn.cursor()
+# GUI components class
+class SignLanguageDetection(QMainWindow):
     
-    landmarkData = {}
+    #=============================================================================================================================================
     
-    for letter in constants.LETTERS.values():
-        cursor.execute(f"SELECT landmarks FROM {letter}")
-        rows = cursor.fetchall()
-        landmarkData[letter] = [json.loads(row[0]) for row in rows]
+    # Initialization class
+    def __init__(self):
+        super().__init__()
         
-    conn.close()
+        with open(Constants.GUI_STYLING_PATH, "r") as file:
+            self.setStyleSheet(file.read())
+        
+        self._dragPos = None
+        
+        self.activeFunction = None
+        self.activeThread = None
+        self.stopEvent = threading.Event()
+        
+        self.initializeDatabase()
+        self.generalSetup()
+        
+        self.setupMainWindow()
+        self.setupTitleBar()
+        
+        self.setupContentWindow()
+        
+        self.setupVideoOutput()
+        self.setupButtons()
+        
+        self.setupUserInteraction()
+        self.setupExampleSignSection()
+        self.setupAIOutputSection()
+        
+        self.setupFooter()
+        
+        self.addUiItems()
+        
+        self.setupCamera()
+        self.noDetectionMode()
     
-    return landmarkData
+    #=============================================================================================================================================
+    
+    # Function to initialize the database if needed
+    def initializeDatabase(self):
+        conn = sqlite3.connect(Constants.DATABASE_PATH)
+        cursor = conn.cursor()
 
-#=============================================================================================================================================
+        for letter in Constants.LETTERS.values():
+            cursor.execute(
+                f'''
+                CREATE TABLE IF NOT EXISTS {letter} (
+                    collectionSet INTEGER PRIMARY KEY AUTOINCREMENT,
+                    landmarks TEXT
+                )
+                '''
+            )
 
-#Fucntion to insert landmark data into the database
-def insertLandmarks(letter, landmarksCollection):
-    conn = sqlite3.connect(constants.DATABASE_PATH)
-    cursor = conn.cursor()
-
-    try:
-        cursor.execute(
-            f"INSERT INTO {letter} (landmarks) VALUES (?)",
-            (json.dumps(landmarksCollection),)
-        )
         conn.commit()
-    finally:
         conn.close()
+        
+    #=============================================================================================================================================
+    
+    # Function to setup items for general program use
+    def generalSetup(self):
+        self.camera = cv2.VideoCapture(0)
+        
+        self.frame = None
+        self.currentKey = None
+        
+        self.mpHands = mp.solutions.hands
+        self.mpDrawing = mp.solutions.drawing_utils
+        self.hands = self.mpHands.Hands(min_detection_confidence=0.7, min_tracking_confidence=0.7)
+
+    #=============================================================================================================================================
+
+    # Function to set up the main window layout
+    def setupMainWindow(self):
+        self.setGeometry(100, 100, 800, 480)
+        self.setWindowFlag(Qt.FramelessWindowHint)
+
+        self.masterWidget = QWidget()
+        self.setCentralWidget(self.masterWidget)
+
+        self.masterLayout = QVBoxLayout(self.masterWidget)
+        self.masterLayout.setContentsMargins(0, 0, 0, 0)
+
+        self.mainWidget = QWidget(self)
+        self.mainWidget.setObjectName("mainWidget")
+
+        self.mainLayout = QVBoxLayout(self.mainWidget)
+        self.mainLayout.setContentsMargins(10, 0, 10, 0)
+        self.mainLayout.setSpacing(0)
+
+    #=============================================================================================================================================
+    
+    # Function to set up the title bar
+    def setupTitleBar(self):
+        self.titleBar = QWidget(self)
+        self.titleBar.setFixedHeight(Constants.TITLE_BAR_HEIGHT)
+
+        self.titleLayout = QHBoxLayout(self.titleBar)
+        self.titleLayout.setContentsMargins(0, 0, 0, 0)
+        self.titleLayout.setAlignment(Qt.AlignVCenter)
+
+        self.titleLabel = QLabel("Sign Language Detection")
+        self.titleLabel.setObjectName("titleLabel")
+
+        self.exitButton = QPushButton(self)
+        self.exitButton.setObjectName("exitButton")
+        self.exitButton.setFixedSize(Constants.EXIT_BUTTON_SIZE, Constants.EXIT_BUTTON_SIZE)
+        self.exitButton.setIcon(QIcon(Constants.EXIT_ICON_PATH))
+        self.exitButton.setIconSize(QSize(Constants.EXIT_BUTTON_SIZE - 2, Constants.EXIT_BUTTON_SIZE - 2))
+        self.exitButton.setFlat(True)
+        self.exitButton.clicked.connect(self.close)
+
+    #=============================================================================================================================================
+    
+    # Function to set up the content window layout
+    def setupContentWindow(self):
+        self.contentSection = QWidget(self)
+
+        self.contentLayout = QHBoxLayout(self.contentSection)
+        self.contentLayout.setContentsMargins(0, 0, 0, 0)
+        
+    #=============================================================================================================================================
+    
+    # Function to set up the video output
+    def setupVideoOutput(self):
+        self.videoOutput = QWidget(self.contentSection)
+        
+        self.videoLayout = QVBoxLayout(self.videoOutput)
+        self.videoLayout.setContentsMargins(0, 0, 0, 0)
+
+        self.videoLabel = QLabel(self.videoOutput)
+
+    #=============================================================================================================================================
+    
+    # Function to set up the buttons section
+    def setupButtons(self):
+        self.buttons = QWidget(self)
+        self.buttons.setFixedHeight(Constants.TOGGLE_BUTTONS_HEIGHT)
+        self.buttons.setObjectName("buttons")
+
+        self.buttonsLayout = QHBoxLayout(self.buttons)
+        self.buttonsLayout.setContentsMargins(0, 0, 0, 0)
+        self.buttonsLayout.setAlignment(Qt.AlignVCenter)
+        self.buttonsLayout.setStretch(0, 1)
+        self.buttonsLayout.setStretch(1, 1)
+        self.buttonsLayout.setStretch(2, 1)
+
+        self.liveDetectionButton = QPushButton(self.buttons)
+        self.liveDetectionButton.setObjectName("liveDetectionButton")
+        self.liveDetectionButton.setText("Live Detection")
+        self.liveDetectionButton.setFixedHeight(Constants.TOGGLE_BUTTONS_HEIGHT)
+
+        self.collectDataButton = QPushButton(self.buttons)
+        self.collectDataButton.setObjectName("collectDataButton")
+        self.collectDataButton.setText("Collect Data")
+        self.collectDataButton.setFixedHeight(Constants.TOGGLE_BUTTONS_HEIGHT)
+        self.collectDataButton.clicked.connect(self.dataCollectionMode)
+
+        self.noDetectionButton = QPushButton(self.buttons)
+        self.noDetectionButton.setObjectName("noDetectionButton")
+        self.noDetectionButton.setText("No Detection")
+        self.noDetectionButton.setFixedHeight(Constants.TOGGLE_BUTTONS_HEIGHT)
+        self.noDetectionButton.clicked.connect(self.noDetectionMode)
+
+    #=============================================================================================================================================
+    
+    # Function to set up the user interaction section
+    def setupUserInteraction(self):
+        self.userItems = QWidget(self.contentSection)
+
+        self.userLayout = QVBoxLayout(self.userItems)
+        self.userLayout.setAlignment(Qt.AlignVCenter)
+
+    #=============================================================================================================================================
+    
+    # Function to set up the example sign section
+    def setupExampleSignSection(self):
+        self.exampleLabel = QLabel("Example Signs:", self.userItems)
+        self.exampleLabel.setObjectName("exampleLabel")
+
+        self.exampleWindow = QWidget(self.userItems)
+        self.exampleWindow.setObjectName("exampleWindow")
+
+        self.exampleLayout = QVBoxLayout(self.exampleWindow)
+        self.exampleLayout.setAlignment(Qt.AlignVCenter)
+
+        self.exampleImage = QLabel(self.exampleWindow)
+        self.exampleImage.setPixmap(QPixmap())
+        self.exampleImage.setFixedSize(135, 140)
+
+        self.dropdownMenu = QComboBox(self.exampleWindow)
+        self.dropdownMenu.addItems([chr(i) for i in range(ord('A'), ord('Z') + 1)])
+        self.dropdownMenu.currentIndexChanged.connect(lambda: self.updateExampleImage(self.dropdownMenu.currentText(), self.exampleImage))
+
+        self.updateExampleImage(self.dropdownMenu.currentText(), self.exampleImage)
+
+    #=============================================================================================================================================
+    
+    # Function to set up the AI output section
+    def setupAIOutputSection(self):
+        self.AILabel = QLabel("AI Guess:", self.userItems)
+        self.AILabel.setObjectName("AILabel")
+        
+        self.AIWindow = QWidget(self.userItems)
+        self.AIWindow.setObjectName("AIWindow")
+        
+        self.AILayout = QVBoxLayout(self.AIWindow)
+        self.AILayout.setAlignment(Qt.AlignVCenter)
+        
+        self.AIImage = QLabel(self.AIWindow)
+        self.AIImage.setPixmap(QPixmap())
+        self.AIImage.setFixedSize(135, 140)
+        
+        self.updateExampleImage('A', self.AIImage)
+
+    #=============================================================================================================================================
+    
+    # Function to set up the footer section
+    def setupFooter(self):
+        self.footer = QWidget(self)
+        self.footer.setFixedHeight(Constants.FOOTER_HEIGHT)
+
+        self.footerLayout = QHBoxLayout(self.footer)
+        self.footerLayout.setContentsMargins(0, 0, 0, 0)
+        self.footerLayout.setAlignment(Qt.AlignVCenter)
+
+        self.infoText = QLabel()
+        self.infoText.setObjectName("infoText")
+        self.infoText.setAlignment(Qt.AlignLeft)
+
+        self.author = QLabel(f"\u00A9 {datetime.datetime.now().year} Benjamin Meyer")
+        self.author.setObjectName("author")
+        self.author.setAlignment(Qt.AlignRight)
+    
+    #=============================================================================================================================================
+    
+    # Function add all of the GUI items
+    def addUiItems(self):
+        self.titleLayout.addWidget(self.titleLabel)
+        self.titleLayout.addWidget(self.exitButton)
+        
+        self.buttonsLayout.addWidget(self.liveDetectionButton)
+        self.buttonsLayout.addWidget(self.collectDataButton)
+        self.buttonsLayout.addWidget(self.noDetectionButton)
+        
+        self.videoLayout.addWidget(self.videoLabel)
+        self.videoLayout.addWidget(self.buttons)
+        
+        self.exampleLayout.addWidget(self.dropdownMenu)
+        self.exampleLayout.addWidget(self.exampleImage)
+        
+        self.AILayout.addWidget(self.AIImage)
+        
+        self.userLayout.addWidget(self.exampleLabel)
+        self.userLayout.addWidget(self.exampleWindow)
+        self.userLayout.addWidget(self.AILabel)
+        self.userLayout.addWidget(self.AIWindow)
+        
+        self.contentLayout.addWidget(self.videoOutput)
+        self.contentLayout.addWidget(self.userItems)
+        
+        self.footerLayout.addWidget(self.infoText)
+        self.footerLayout.addWidget(self.author)
+        
+        self.mainLayout.addWidget(self.titleBar)
+        self.mainLayout.addWidget(self.contentSection)
+        self.mainLayout.addWidget(self.footer)
+        
+        self.masterLayout.addWidget(self.mainWidget)
+        
+    #=============================================================================================================================================
+
+    # Event handler for mouse press
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self._dragPos = event.globalPos()
+            event.accept()
+
+    #=============================================================================================================================================
+
+    # Event handler for mouse move event
+    def mouseMoveEvent(self, event):
+        if self._dragPos is not None:
+            delta = event.globalPos() - self._dragPos
+            self.move(self.pos() + delta)
+            self._dragPos = event.globalPos()
+            event.accept()
+
+    #=============================================================================================================================================
+
+    # Handler for mouse release event
+    def mouseReleaseEvent(self, event):
+        self._dragPos = None
+        event.accept()
+    
+    #=============================================================================================================================================
+
+    # Handler for key press event
+    def keyPressEvent(self, event):
+        key = chr(event.key()).upper()
+        
+        if key in Constants.LETTERS.values():
+            self.currentKey = key
+        else:
+            self.currentKey = None
+
+    #=============================================================================================================================================
+    
+    # Function to set up the camera and timer
+    def setupCamera(self):
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.cameraOutput)
+        self.timer.start(Constants.WEBCAM_UPDATE)
+
+    #=============================================================================================================================================
+    
+    # Function used to update the video output
+    def cameraOutput(self):
+        if self.frame is None:
+            return
+        
+        frameRgb = cv2.cvtColor(self.frame, cv2.COLOR_BGR2RGB)
+        image = QImage(frameRgb.data, frameRgb.shape[1], frameRgb.shape[0], frameRgb.strides[0], QImage.Format_RGB888)
+        
+        self.videoLabel.setPixmap(QPixmap.fromImage(image))
+        
+    #=============================================================================================================================================
+
+    # Function to update the video output frame
+    def updateFrame(self, frame):
+        self.frame = frame
+        
+    #=============================================================================================================================================
+
+    # Function to get the last pressed key
+    def getKeyPress(self):
+        return self.currentKey
+    
+    #=============================================================================================================================================
+
+    # Function to set the last pressed key to none
+    def setCurrentKey(self):
+        self.currentKey = None
+    
+    #=============================================================================================================================================
+    
+    #Function to run the live detection mode
+    def liveDetectionMode(self):
+        if self.activeFunction == liveDetection:
+            return
+        
+        self.activeFunction = liveDetection
+        self.stopCurrentThread()
+        self.stopEvent.clear()
+        
+        self.activeThread = threading.Thread(target=liveDetection, args=(self.camera, self.hands, self.mpDrawing, self.mpHands, self.updateFrame, self.stopEvent), daemon=True)
+        self.activeThread.start()
+        
+        self.infoText.setText("Mode: Live Detection")
+    
+    #=============================================================================================================================================
+
+    # Function to run the data collection mode
+    def dataCollectionMode(self):
+        if self.activeFunction == dataCollection:
+            return
+        
+        self.activeFunction = dataCollection
+        self.stopCurrentThread()
+        self.stopEvent.clear()
+        
+        self.activeThread = threading.Thread(target=dataCollection, args=(self.camera, self.hands, self.mpDrawing, self.mpHands, self.updateFrame, self.getKeyPress, self.setCurrentKey, self.stopEvent), daemon=True)
+        self.activeThread.start()
+        
+        self.infoText.setText("Mode: Data Collection")
+        
+    #=============================================================================================================================================
+    
+    # Function to run the no detection mode
+    def noDetectionMode(self):
+        if self.activeFunction == noDetection:
+            return
+        
+        self.activeFunction = noDetection
+        self.stopCurrentThread()
+        self.stopEvent.clear()
+        
+        self.activeThread = threading.Thread(target=noDetection, args=(self.camera, self.updateFrame, self.stopEvent), daemon=True)
+        self.activeThread.start()
+        
+        self.infoText.setText("Mode: No Detection")
+    
+    #=============================================================================================================================================
+    
+    # Function to stop a current thread
+    def stopCurrentThread(self):
+        if self.activeThread and self.activeThread.is_alive():
+            self.stopEvent.set()
+            self.activeThread.join()
+            self.activeThread = None
+            
+    #=============================================================================================================================================
+    
+    # Function to update the example and AI guess images
+    def updateExampleImage(self, letter, imageLabel):
+        imagePath = os.path.join(Constants.LETTER_EXAMPELS_PATH, f"{letter.upper()}.png")
+        
+        if os.path.exists(imagePath):
+            pixmap = QPixmap(imagePath)
+            imageLabel.setPixmap(pixmap.scaled(imageLabel.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        else:
+            imageLabel.clear()
 
 #=============================================================================================================================================
 
-#Function for normal video display
-def baseMode(camera, updateFrame, stopEvent):
-    while camera.isOpened():
-        if stopEvent.is_set():
-            break
-        
-        ret, frame = camera.read()
-        
-        if not ret:
-            break
-        
-        updateFrame(frame)
-
-#=============================================================================================================================================
-
-#Function to collect data for training
-def collectionMode(camera, hands, mpDrawing, mpHands, updateFrame, getKeyPress, resetKey, stopEvent):    
-    landmarksCollection = []
-    collecting = False
-    letter = None
-    collectionNumber = 0
+if __name__ == "__main__":    
+    app = QApplication(sys.argv)
     
-    while camera.isOpened():
-        if stopEvent.is_set():
-            break
-        
-        ret, frame = camera.read()
-        
-        if not ret:
-            break
-        
-        frameRgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        results = hands.process(frameRgb)
-        
-        if results.multi_hand_landmarks:
-            for handLandmarks in results.multi_hand_landmarks:
-                mpDrawing.draw_landmarks(frame, handLandmarks, mpHands.HAND_CONNECTIONS)
-                landmarks = np.array([[lm.x, lm.y, lm.z] for lm in handLandmarks.landmark])
-                
-                if collecting:
-                    cv2.putText(frame, "Collecting data...", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
-                else:
-                    cv2.putText(frame, "Press a letter to collect data.", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
-                    
-                letter = getKeyPress()
-                
-                if letter and not collecting:
-                    print(f"Start collecting data for: {letter}")
-                    
-                    landmarksCollection = []
-                    startTime = time.time()
-                    collecting = True
-                    
-                    collectionCount = getCollectionCount(letter)
-                    collectionNumber = collectionCount + 1
-                    
-                if collecting:
-                    landmarksCollection.append(landmarks.tolist())
-                    
-                    if time.time() - startTime >= constants.COLLECTION_LENGTH:
-                        collecting = False
-                        
-                        insertLandmarks(letter, landmarksCollection)
-                        
-                        resetKey()
+    window = SignLanguageDetection()
+    window.show()
     
-                        print(f"Captured {letter} collection {collectionNumber + 1}: Data stored in SQLite.")
-        
-        updateFrame(frame)
-        
-#=============================================================================================================================================
-
-#Function for live sign language detection
-def liveDetection(camera, hands, mpDrawing, mpHands, updateFrame, stopEvent):
-    model = tf.keras.models.load_model(constants.MODEL_PATH) if os.path.exists(constants.MODEL_PATH) else None
+    sys.exit(app.exec_())
     
-    if model is None:
-        print("No trained model found! Train the model first.")
-        return
-        
-    while camera.isOpened():
-        if stopEvent.is_set():
-            break
-        
-        ret, frame = camera.read()
-        
-        if not ret:
-            break
-        
-        frameRgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        results = hands.process(frameRgb)
-
-        if results.multi_hand_landmarks:
-            for handLandmarks in results.multi_hand_landmarks:
-                mpDrawing.draw_landmarks(frame, handLandmarks, mpHands.HAND_CONNECTIONS)
-                
-                landmarks = np.array([[lm.x, lm.y, lm.z] for lm in handLandmarks.landmark])
-                landmarksArray = np.tile(landmarks, (constants.COLLECTION_LENGTH, 1, 1))
-                
-                prediction = model.predict(landmarksArray.reshape(1, constants.COLLECTION_LENGTH, 21, 3))
-                action = constants.LETTERS[np.argmax(prediction)]
-                
-                cv2.putText(frame, action, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
-                
-        updateFrame(frame)
-
-#=============================================================================================================================================
-
-#Function to create AI model for letter detection
-def createModel():
-    model = Sequential([
-        Flatten(input_shape=(constants.COLLECTION_SNAPSHOTS, 21, 3)),
-        Dense(128, activation='relu'),
-        Dense(64, activation='relu'),
-        Dense(len(constants.LETTERS), activation='softmax')
-    ])
-    
-    model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
-    
-    return model
-
-#=============================================================================================================================================
-
-#Function to train the AI model
-def trainModel():
-    landmarkData = getLandmarks()
-
-    x = []
-    y = []
-
-    for letter, landmarkList in landmarkData.items():
-        for landmarksCollection in landmarkList:
-            if len(landmarksCollection) == constants.COLLECTION_SNAPSHOTS:
-                landmarksArray = np.array(landmarksCollection).reshape(constants.COLLECTION_SNAPSHOTS, 21, 3)
-                
-                x.append(landmarksArray)
-                y.append(list(constants.LETTERS.values()).index(letter))
-
-    x = np.array(x)
-    y = np.array(y)
-
-    if x.size == 0:
-        print("No data available! Please collect data first.")
-        return
-
-    model = createModel()
-    model.fit(x, y, epochs=2000, validation_split=0.2)
-    model.save(constants.MODEL_PATH)
-
-    print("Model trained and saved!")
-
 #=============================================================================================================================================
