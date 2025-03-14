@@ -1,103 +1,157 @@
 import cv2
+import json
 import os
 import string
+import sqlite3
 import sys
+import time
 
 import mediapipe as mp
 import numpy as np
 import tensorflow as tf
-
-from gui import GUI
-
-from PyQt5.QtWidgets import QApplication
 
 from tensorflow.keras.layers import Dense, Flatten
 from tensorflow.keras.models import Sequential
 
 #=============================================================================================================================================
 
-camera = cv2.VideoCapture(0)
+#Constants
+COLLECTION_LENGTH = 2
+COLLECTION_SNAPSHOTS = 34
 
-mp_hands = mp.solutions.hands
-mp_drawing = mp.solutions.drawing_utils
-hands = mp_hands.Hands(min_detection_confidence=0.7, min_tracking_confidence=0.7)
+DATABASE_PATH = "../database/sign_language.db"
+MODEL_PATH = "../model/sign_language.h5"
+LETTER_EXAMPLES_PATH = "Letter Examples"
 
-DATASET_DIR = "ASL Dataset"
-MODEL_DIR = "ASL AI Model"
-LETTER_EXAMPLES_DIR = "Letter Examples"
 LETTERS = {i: letter for i, letter in enumerate(string.ascii_uppercase[:5])}
-
-for letter in LETTERS.values():
-    os.makedirs(os.path.join(DATASET_DIR, letter), exist_ok=True)
-
-capture_counts = {letter: len(os.listdir(os.path.join(DATASET_DIR, letter))) for letter in LETTERS.values()}
 
 #=============================================================================================================================================
 
-def collect_data():
-    x, y = [], []
+#Function to access the database for collection count
+def getCollectionCount(letter):
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
     
-    print("Press a letter to collect data. Press 'Spacebar' to quit.")
+    try:
+        cursor.execute(f"SELECT COUNT(*) FROM {letter}")
+        result = cursor.fetchone()[0]
+    finally:
+        conn.close()
+
+    return result
+
+#=============================================================================================================================================
+
+#Function to get the landmark data from the database
+def getLandmarks():
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
     
+    landmarkData = {}
+    
+    for letter in LETTERS.values():
+        cursor.execute(f"SELECT landmarks FROM {letter}")
+        rows = cursor.fetchall()
+        landmarkData[letter] = [json.loads(row[0]) for row in rows]
+        
+    conn.close()
+    
+    return landmarkData
+
+#=============================================================================================================================================
+
+#Fucntion to insert landmark data into the database
+def insertLandmarks(letter, landmarksCollection):
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute(
+            f"INSERT INTO {letter} (landmarks) VALUES (?)",
+            (json.dumps(landmarksCollection),)
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+#=============================================================================================================================================
+
+#Function for normal video display
+def baseMode(camera, updateFrame, stopEvent):
     while camera.isOpened():
+        if stopEvent.is_set():
+            break
+        
         ret, frame = camera.read()
         
         if not ret:
             break
         
-        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        results = hands.process(frame_rgb)
+        updateFrame(frame)
 
-        if results.multi_hand_landmarks:
-            for hand_landmarks in results.multi_hand_landmarks:
-                mp_drawing.draw_landmarks(frame, hand_landmarks, mp_hands.HAND_CONNECTIONS)
-                landmarks = np.array([[lm.x, lm.y, lm.z] for lm in hand_landmarks.landmark])
-                
-                cv2.putText(frame, "Press a letter to collect data.", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
-                
-                key = cv2.waitKey(1) & 0xFF
-                
-                if key in [ord('a'), ord('b'), ord('c'), ord('d'), ord('e')]:
-                    action = {'a': 0, 'b': 1, 'c': 2, 'd': 3, 'e': 4}[chr(key)]
-                    
-                    x.append(landmarks)
-                    y.append(action)
-                    
-                    action_dir = os.path.join(DATASET_DIR, LETTERS[action])
-                    frame_filename = f"{len(os.listdir(action_dir)) + 1}.npy"
-                    
-                    np.save(os.path.join(action_dir, frame_filename), landmarks)
-                    
-                    print(f"Captured {LETTERS[action]}: {frame_filename}")
+#=============================================================================================================================================
 
-        cv2.imshow("Sign Language Data Collection", frame)
-        
-        if cv2.waitKey(1) & 0xFF == ord(' ') or cv2.getWindowProperty("Sign Language Data Collection", cv2.WND_PROP_VISIBLE) < 1:
+#Function to collect data for training
+def collectionMode(camera, hands, mpDrawing, mpHands, updateFrame, getKeyPress, resetKey, stopEvent):    
+    landmarksCollection = []
+    collecting = False
+    letter = None
+    collectionNumber = 0
+    
+    while camera.isOpened():
+        if stopEvent.is_set():
             break
-    
-    camera.release()
-    cv2.destroyAllWindows()
-
-#=============================================================================================================================================
-
-def load_dataset():
-    x, y = [], []
-    
-    for label, letter in LETTERS.items():
-        letter_dir = os.path.join(DATASET_DIR, letter)
         
-        for file in os.listdir(letter_dir):
-            file_path = os.path.join(letter_dir, file)
-            x.append(np.load(file_path))
-            y.append(label)
-            
-    return np.array(x), np.array(y)
+        ret, frame = camera.read()
+        
+        if not ret:
+            break
+        
+        frameRgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        results = hands.process(frameRgb)
+        
+        if results.multi_hand_landmarks:
+            for handLandmarks in results.multi_hand_landmarks:
+                mpDrawing.draw_landmarks(frame, handLandmarks, mpHands.HAND_CONNECTIONS)
+                landmarks = np.array([[lm.x, lm.y, lm.z] for lm in handLandmarks.landmark])
+                
+                if collecting:
+                    cv2.putText(frame, "Collecting data...", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
+                else:
+                    cv2.putText(frame, "Press a letter to collect data.", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
+                    
+                letter = getKeyPress()
+                
+                if letter and not collecting:
+                    print(f"Start collecting data for: {letter}")
+                    
+                    landmarksCollection = []
+                    startTime = time.time()
+                    collecting = True
+                    
+                    collectionCount = getCollectionCount(letter)
+                    collectionNumber = collectionCount + 1
+                    
+                if collecting:
+                    landmarksCollection.append(landmarks.tolist())
+                    
+                    if time.time() - startTime >= COLLECTION_LENGTH:
+                        collecting = False
+                        
+                        insertLandmarks(letter, landmarksCollection)
+                        
+                        resetKey()
+    
+                        print(f"Captured {letter} collection {collectionNumber + 1}: Data stored in SQLite.")
+        
+        updateFrame(frame)
 
 #=============================================================================================================================================
 
-def create_model():
+#Function to create AI model for letter detection
+def createModel():
     model = Sequential([
-        Flatten(input_shape=(21, 3)),
+        Flatten(input_shape=(COLLECTION_SNAPSHOTS, 21, 3)),
         Dense(128, activation='relu'),
         Dense(64, activation='relu'),
         Dense(len(LETTERS), activation='softmax')
@@ -109,65 +163,70 @@ def create_model():
 
 #=============================================================================================================================================
 
-def train_model():
-    if not os.path.exists(DATASET_DIR):
-        print("No dataset found! Please collect data first.")
-        return
-    
-    x, y = load_dataset()
-    
+#Function to train the AI model
+def trainModel():
+    landmarkData = getLandmarks()
+
+    x = []
+    y = []
+
+    for letter, landmarkList in landmarkData.items():
+        for landmarksCollection in landmarkList:
+            if len(landmarksCollection) == COLLECTION_SNAPSHOTS:
+                landmarksArray = np.array(landmarksCollection).reshape(COLLECTION_SNAPSHOTS, 21, 3)
+                
+                x.append(landmarksArray)
+                y.append(list(LETTERS.values()).index(letter))
+
+    x = np.array(x)
+    y = np.array(y)
+
     if x.size == 0:
-        print("No data available!")
+        print("No data available! Please collect data first.")
         return
-    
-    model = create_model()
+
+    model = createModel()
     model.fit(x, y, epochs=2000, validation_split=0.2)
-    model.save(os.path.join(MODEL_DIR, "asl_model.h5"))
-    
+    model.save(MODEL_PATH)
+
     print("Model trained and saved!")
 
 #=============================================================================================================================================
 
-def live_detection():
-    model = tf.keras.models.load_model(os.path.join(MODEL_DIR, "asl_model.h5")) if os.path.exists(os.path.join(MODEL_DIR, "asl_model.h5")) else None
+# def liveDetection():
+#     model = tf.keras.models.load_model(MODEL_PATH) if os.path.exists(MODEL_PATH) else None
     
-    if model is None:
-        print("No trained model found! Train the model first.")
-        return
+#     if model is None:
+#         print("No trained model found! Train the model first.")
+#         return
         
-    while camera.isOpened():
-        ret, frame = camera.read()
+#     while camera.isOpened():
+#         ret, frame = camera.read()
         
-        if not ret:
-            break
+#         if not ret:
+#             break
         
-        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        results = hands.process(frame_rgb)
+#         frameRgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+#         results = hands.process(frameRgb)
 
-        if results.multi_hand_landmarks:
-            for hand_landmarks in results.multi_hand_landmarks:
-                mp_drawing.draw_landmarks(frame, hand_landmarks, mp_hands.HAND_CONNECTIONS)
-                landmarks = np.array([[lm.x, lm.y, lm.z] for lm in hand_landmarks.landmark]).reshape(1, 21, 3)
+#         if results.multi_hand_landmarks:
+#             for handLandmarks in results.multi_hand_landmarks:
+#                 mpDrawing.draw_landmarks(frame, handLandmarks, mpHands.HAND_CONNECTIONS)
                 
-                prediction = model.predict(landmarks)
-                action = LETTERS[np.argmax(prediction)]
+#                 landmarks = np.array([[lm.x, lm.y, lm.z] for lm in handLandmarks.landmark])
+#                 landmarksArray = np.tile(landmarks, (COLLECTION_LENGTH, 1, 1))
                 
-                cv2.putText(frame, action, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-    
-        cv2.imshow("Sign Language Detection", frame)
+#                 prediction = model.predict(landmarksArray.reshape(1, COLLECTION_LENGTH, 21, 3))
+#                 action = LETTERS[np.argmax(prediction)]
+                
+#                 cv2.putText(frame, action, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
         
-        if cv2.waitKey(1) & 0xFF == ord(' ') or cv2.getWindowProperty("Sign Language Detection", cv2.WND_PROP_VISIBLE) < 1:
-            break
+#         cv2.imshow("Sign Language Detection", frame)
+        
+#         if cv2.waitKey(1) & 0xFF == ord(' ') or cv2.getWindowProperty("Sign Language Detection", cv2.WND_PROP_VISIBLE) < 1:
+#             break
 
-    camera.release()
-    cv2.destroyAllWindows()
-
-#=============================================================================================================================================
-
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    window = GUI()
-    window.show()
-    sys.exit(app.exec_())
+#     camera.release()
+#     cv2.destroyAllWindows()
 
 #=============================================================================================================================================

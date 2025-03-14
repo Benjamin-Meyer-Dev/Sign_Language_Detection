@@ -36,37 +36,37 @@ QLabel {
 /*============================*/
 /*Entire GUI*/
 
-#content_widgit {
+#mainWidget {
     background-color: #1E1E1E;
 }
 
 /*============================*/
 /*Title Bar*/
 
-#title_label {
+#titleLabel {
     font-size: 18px;
     font-weight: bold;
 }
 
-#exit_button:pressed {
+#exitButton:pressed {
     background-color: transparent;
 }
 
 /*============================*/
 /*User Section*/
 
-#example_label, #ai_label {
+#exampleLabel, #AILabel {
     font-size: 16px;
 }
 
-#example_window, #ai_output {
+#exampleWindow, #AIWindow {
     border: 2px solid white;
 }
 
 /*============================*/
 /*Toggle Buttons*/
 
-#live_detection_button, #collect_data_button, #no_detection_button {
+#liveDetectionButton, #collectDataButton, #noDetectionButton {
     background-color: #007BFF;
     color: #FFFFFF;
     font-family: "Lato";
@@ -74,7 +74,7 @@ QLabel {
     border-radius: 5px;
 }
 
-#live_detection_button:pressed, #collect_data_button:pressed, #no_detection_button:pressed {
+#liveDetectionButton:pressed, #collectDataButton:pressed, #noDetectionButton:pressed {
     background-color: #0056b3;
     border: 2px solid rgba(0, 0, 0, 0.2);
 }
@@ -82,7 +82,7 @@ QLabel {
 /*============================*/
 /*Footer*/
 
-#info_text, #author {
+#infoText, #author {
     font-size: 14px;
 }
 
