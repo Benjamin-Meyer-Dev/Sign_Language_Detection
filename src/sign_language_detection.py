@@ -31,7 +31,7 @@ class SignLanguageDetection(QMainWindow):
         with open(Constants.GUI_STYLING_PATH, "r") as file:
             self.setStyleSheet(file.read())
         
-        self.setWindowTitle("Sign Language Detector")        
+        self.setWindowTitle("Sign Language Detection")        
         self._dragPos = None
         self.model = None
         
@@ -58,7 +58,7 @@ class SignLanguageDetection(QMainWindow):
         if not os.path.exists(Constants.MODEL_PATH):
             self.noDetectionMode()
         else:
-            self.dataCollectionMode()
+            self.liveDetectionMode()
     
     #=============================================================================================================================================
     
