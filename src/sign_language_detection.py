@@ -4,6 +4,7 @@ import datetime
 import os
 import sqlite3
 import sys
+
 import threading
 
 import mediapipe as mp
@@ -30,11 +31,9 @@ class SignLanguageDetection(QMainWindow):
         with open(Constants.GUI_STYLING_PATH, "r") as file:
             self.setStyleSheet(file.read())
         
+        self.setWindowTitle("Sign Language Detector")        
         self._dragPos = None
-        
-        self.activeFunction = None
-        self.activeThread = None
-        self.stopEvent = threading.Event()
+        self.model = None
         
         self.initializeDatabase()
         self.generalSetup()
@@ -45,7 +44,6 @@ class SignLanguageDetection(QMainWindow):
         self.setupContentWindow()
         
         self.setupVideoOutput()
-        self.setupButtons()
         
         self.setupUserInteraction()
         self.setupExampleSignSection()
@@ -53,10 +51,14 @@ class SignLanguageDetection(QMainWindow):
         
         self.setupFooter()
         
-        self.addUiItems()
+        self.addUIItems()
         
         self.setupCamera()
-        self.noDetectionMode()
+        
+        if not os.path.exists(Constants.MODEL_PATH):
+            self.noDetectionMode()
+        else:
+            self.dataCollectionMode()
     
     #=============================================================================================================================================
     
@@ -74,6 +76,8 @@ class SignLanguageDetection(QMainWindow):
                 )
                 '''
             )
+            
+            cursor.execute(f"DELETE FROM {letter} WHERE collectionSet > 30")
 
         conn.commit()
         conn.close()
@@ -121,6 +125,12 @@ class SignLanguageDetection(QMainWindow):
         self.titleLayout = QHBoxLayout(self.titleBar)
         self.titleLayout.setContentsMargins(0, 0, 0, 0)
         self.titleLayout.setAlignment(Qt.AlignVCenter)
+        
+        self.programIcon = QLabel(self.titleBar)
+        self.programIcon.setObjectName("programIcon")
+        self.programIcon.setFixedSize(Constants.PROGRAM_ICON_SIZE, Constants.PROGRAM_ICON_SIZE)
+        self.programIcon.setPixmap(QPixmap(Constants.PROGRAM_ICON_PATH))
+        self.programIcon.setScaledContents(True)
 
         self.titleLabel = QLabel("Sign Language Detection")
         self.titleLabel.setObjectName("titleLabel")
@@ -155,38 +165,6 @@ class SignLanguageDetection(QMainWindow):
 
     #=============================================================================================================================================
     
-    # Function to set up the buttons section
-    def setupButtons(self):
-        self.buttons = QWidget(self)
-        self.buttons.setFixedHeight(Constants.TOGGLE_BUTTONS_HEIGHT)
-        self.buttons.setObjectName("buttons")
-
-        self.buttonsLayout = QHBoxLayout(self.buttons)
-        self.buttonsLayout.setContentsMargins(0, 0, 0, 0)
-        self.buttonsLayout.setAlignment(Qt.AlignVCenter)
-        self.buttonsLayout.setStretch(0, 1)
-        self.buttonsLayout.setStretch(1, 1)
-        self.buttonsLayout.setStretch(2, 1)
-
-        self.liveDetectionButton = QPushButton(self.buttons)
-        self.liveDetectionButton.setObjectName("liveDetectionButton")
-        self.liveDetectionButton.setText("Live Detection")
-        self.liveDetectionButton.setFixedHeight(Constants.TOGGLE_BUTTONS_HEIGHT)
-
-        self.collectDataButton = QPushButton(self.buttons)
-        self.collectDataButton.setObjectName("collectDataButton")
-        self.collectDataButton.setText("Collect Data")
-        self.collectDataButton.setFixedHeight(Constants.TOGGLE_BUTTONS_HEIGHT)
-        self.collectDataButton.clicked.connect(self.dataCollectionMode)
-
-        self.noDetectionButton = QPushButton(self.buttons)
-        self.noDetectionButton.setObjectName("noDetectionButton")
-        self.noDetectionButton.setText("No Detection")
-        self.noDetectionButton.setFixedHeight(Constants.TOGGLE_BUTTONS_HEIGHT)
-        self.noDetectionButton.clicked.connect(self.noDetectionMode)
-
-    #=============================================================================================================================================
-    
     # Function to set up the user interaction section
     def setupUserInteraction(self):
         self.userItems = QWidget(self.contentSection)
@@ -198,7 +176,7 @@ class SignLanguageDetection(QMainWindow):
     
     # Function to set up the example sign section
     def setupExampleSignSection(self):
-        self.exampleLabel = QLabel("Example Signs:", self.userItems)
+        self.exampleLabel = QLabel("Sign Language Letters:", self.userItems)
         self.exampleLabel.setObjectName("exampleLabel")
 
         self.exampleWindow = QWidget(self.userItems)
@@ -212,16 +190,17 @@ class SignLanguageDetection(QMainWindow):
         self.exampleImage.setFixedSize(135, 140)
 
         self.dropdownMenu = QComboBox(self.exampleWindow)
-        self.dropdownMenu.addItems([chr(i) for i in range(ord('A'), ord('Z') + 1)])
-        self.dropdownMenu.currentIndexChanged.connect(lambda: self.updateExampleImage(self.dropdownMenu.currentText(), self.exampleImage))
+        self.dropdownMenu.addItems(Constants.LETTERS.values())
+        self.dropdownMenu.setFocusPolicy(Qt.NoFocus)
+        self.dropdownMenu.currentIndexChanged.connect(lambda: self.updateExampleAIImage(self.dropdownMenu.currentText(), self.exampleImage))
 
-        self.updateExampleImage(self.dropdownMenu.currentText(), self.exampleImage)
+        self.updateExampleAIImage(self.dropdownMenu.currentText(), self.exampleImage)
 
     #=============================================================================================================================================
     
     # Function to set up the AI output section
     def setupAIOutputSection(self):
-        self.AILabel = QLabel("AI Guess:", self.userItems)
+        self.AILabel = QLabel("AI Letter Guess:", self.userItems)
         self.AILabel.setObjectName("AILabel")
         
         self.AIWindow = QWidget(self.userItems)
@@ -233,8 +212,6 @@ class SignLanguageDetection(QMainWindow):
         self.AIImage = QLabel(self.AIWindow)
         self.AIImage.setPixmap(QPixmap())
         self.AIImage.setFixedSize(135, 140)
-        
-        self.updateExampleImage('A', self.AIImage)
 
     #=============================================================================================================================================
     
@@ -258,16 +235,13 @@ class SignLanguageDetection(QMainWindow):
     #=============================================================================================================================================
     
     # Function add all of the GUI items
-    def addUiItems(self):
+    def addUIItems(self):
+        self.titleLayout.addWidget(self.programIcon)
         self.titleLayout.addWidget(self.titleLabel)
+        self.titleLayout.addStretch()
         self.titleLayout.addWidget(self.exitButton)
         
-        self.buttonsLayout.addWidget(self.liveDetectionButton)
-        self.buttonsLayout.addWidget(self.collectDataButton)
-        self.buttonsLayout.addWidget(self.noDetectionButton)
-        
         self.videoLayout.addWidget(self.videoLabel)
-        self.videoLayout.addWidget(self.buttons)
         
         self.exampleLayout.addWidget(self.dropdownMenu)
         self.exampleLayout.addWidget(self.exampleImage)
@@ -320,10 +294,12 @@ class SignLanguageDetection(QMainWindow):
 
     # Handler for key press event
     def keyPressEvent(self, event):
-        key = chr(event.key()).upper()
+        key = event.key()
         
-        if key in Constants.LETTERS.values():
-            self.currentKey = key
+        if key == Constants.ENTER_KEYCODE:
+            self.currentKey = 'Enter'
+        elif chr(key).upper() in Constants.LETTERS.values():
+            self.currentKey = chr(key).upper()
         else:
             self.currentKey = None
 
@@ -354,6 +330,36 @@ class SignLanguageDetection(QMainWindow):
         self.frame = frame
         
     #=============================================================================================================================================
+    
+    #Function to run the live detection mode
+    def liveDetectionMode(self):
+        self.activeThread = threading.Thread(target=liveDetection, args=(self.camera, self.hands, self.AIImage, self.updateExampleAIImage, self.updateFrame), daemon=True)
+        self.activeThread.start()
+        
+        self.infoText.setText("AI now detecting sign language letters.")
+        
+    #=============================================================================================================================================
+    
+    #Function to update the example and AI guess images
+    def updateExampleAIImage(self, letter, imageLabel):
+        if not letter or not os.path.exists(os.path.join(Constants.LETTER_EXAMPELS_PATH, f"{letter.upper()}.png")):
+            imageLabel.clear()
+            return
+        
+        imagePath = os.path.join(Constants.LETTER_EXAMPELS_PATH, f"{letter.upper()}.png")
+        pixmap = QPixmap(imagePath)
+        imageLabel.setPixmap(pixmap.scaled(imageLabel.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
+
+    #=============================================================================================================================================
+
+    # Function to run the data collection mode
+    def dataCollectionMode(self):
+        self.activeThread = threading.Thread(target=dataCollection, args=(self.camera, self.hands, self.mpDrawing, self.mpHands, self.getKeyPress, self.setCurrentKey, self.updateFrame,), daemon=True)
+        self.activeThread.start()
+        
+        self.infoText.setText("Now collecting new letter data.")
+        
+    #=============================================================================================================================================
 
     # Function to get the last pressed key
     def getKeyPress(self):
@@ -364,80 +370,21 @@ class SignLanguageDetection(QMainWindow):
     # Function to set the last pressed key to none
     def setCurrentKey(self):
         self.currentKey = None
-    
+        
     #=============================================================================================================================================
-    
+        
     #Function to run the live detection mode
-    def liveDetectionMode(self):
-        if self.activeFunction == liveDetection:
-            return
-        
-        self.activeFunction = liveDetection
-        self.stopCurrentThread()
-        self.stopEvent.clear()
-        
-        self.activeThread = threading.Thread(target=liveDetection, args=(self.camera, self.hands, self.mpDrawing, self.mpHands, self.updateFrame, self.stopEvent), daemon=True)
-        self.activeThread.start()
-        
-        self.infoText.setText("Mode: Live Detection")
-    
-    #=============================================================================================================================================
-
-    # Function to run the data collection mode
-    def dataCollectionMode(self):
-        if self.activeFunction == dataCollection:
-            return
-        
-        self.activeFunction = dataCollection
-        self.stopCurrentThread()
-        self.stopEvent.clear()
-        
-        self.activeThread = threading.Thread(target=dataCollection, args=(self.camera, self.hands, self.mpDrawing, self.mpHands, self.updateFrame, self.getKeyPress, self.setCurrentKey, self.stopEvent), daemon=True)
-        self.activeThread.start()
-        
-        self.infoText.setText("Mode: Data Collection")
-        
-    #=============================================================================================================================================
-    
-    # Function to run the no detection mode
     def noDetectionMode(self):
-        if self.activeFunction == noDetection:
-            return
-        
-        self.activeFunction = noDetection
-        self.stopCurrentThread()
-        self.stopEvent.clear()
-        
-        self.activeThread = threading.Thread(target=noDetection, args=(self.camera, self.updateFrame, self.stopEvent), daemon=True)
+        self.activeThread = threading.Thread(target=noDetection, args=(self.camera, self.updateFrame), daemon=True)
         self.activeThread.start()
         
-        self.infoText.setText("Mode: No Detection")
-    
-    #=============================================================================================================================================
-    
-    # Function to stop a current thread
-    def stopCurrentThread(self):
-        if self.activeThread and self.activeThread.is_alive():
-            self.stopEvent.set()
-            self.activeThread.join()
-            self.activeThread = None
-            
-    #=============================================================================================================================================
-    
-    # Function to update the example and AI guess images
-    def updateExampleImage(self, letter, imageLabel):
-        imagePath = os.path.join(Constants.LETTER_EXAMPELS_PATH, f"{letter.upper()}.png")
-        
-        if os.path.exists(imagePath):
-            pixmap = QPixmap(imagePath)
-            imageLabel.setPixmap(pixmap.scaled(imageLabel.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
-        else:
-            imageLabel.clear()
+        self.infoText.setText("No trained model found! Please use the trained model from the Github repo, or create your own.")
 
 #=============================================================================================================================================
 
 if __name__ == "__main__":    
     app = QApplication(sys.argv)
+    app.setWindowIcon(QIcon(Constants.PROGRAM_ICON_PATH))
     
     window = SignLanguageDetection()
     window.show()

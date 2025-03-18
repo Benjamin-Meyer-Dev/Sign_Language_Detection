@@ -1,7 +1,6 @@
 import cv2
 import Constants
 import json
-import os
 import random
 import sqlite3
 import time
@@ -17,17 +16,12 @@ from tensorflow.keras.models import Sequential
 #=============================================================================================================================================
 
 #Function for live sign language detection
-def liveDetection(camera, hands, mpDrawing, mpHands, updateFrame, stopEvent):
-    model = tf.keras.models.load_model(Constants.MODEL_PATH) if os.path.exists(Constants.MODEL_PATH) else None
+def liveDetection(camera, hands, imageLocation, updateImage, updateFrame):    
+    model = tf.keras.models.load_model(Constants.MODEL_PATH)
+    snapshots = []
+    lastLetter = None
     
-    if model is None:
-        print("No trained model found! Train the model first.")
-        return
-        
     while camera.isOpened():
-        if stopEvent.is_set():
-            break
-        
         ret, frame = camera.read()
         
         if not ret:
@@ -38,31 +32,39 @@ def liveDetection(camera, hands, mpDrawing, mpHands, updateFrame, stopEvent):
 
         if results.multi_hand_landmarks:
             for handLandmarks in results.multi_hand_landmarks:
-                mpDrawing.draw_landmarks(frame, handLandmarks, mpHands.HAND_CONNECTIONS)
-                
                 landmarks = np.array([[lm.x, lm.y, lm.z] for lm in handLandmarks.landmark])
-                landmarksArray = np.tile(landmarks, (Constants.COLLECTION_LENGTH, 1, 1))
+                snapshots.append(landmarks)
                 
-                prediction = model.predict(landmarksArray.reshape(1, Constants.COLLECTION_LENGTH, Constants.HAND_POINTS, Constants.COORD_POINTS))
-                action = Constants.LETTERS[np.argmax(prediction)]
-                
-                cv2.putText(frame, action, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
-                
+                if len(snapshots) == Constants.COLLECTION_SNAPSHOTS:
+                    landmarksArray = np.array(snapshots).reshape(Constants.COLLECTION_SNAPSHOTS, Constants.HAND_POINTS, Constants.COORD_POINTS)
+
+                    prediction = model.predict(landmarksArray.reshape(1, Constants.COLLECTION_SNAPSHOTS, Constants.HAND_POINTS, Constants.COORD_POINTS))
+                    letter = Constants.LETTERS[np.argmax(prediction)]
+                    
+                    if letter != lastLetter:
+                        lastLetter = letter
+                    
+                    updateImage(lastLetter, imageLocation)
+                    snapshots = []
+        else:
+            updateImage(None, imageLocation)
+        
         updateFrame(frame)
 
 #=============================================================================================================================================
 
 #Function to collect data for training
-def dataCollection(camera, hands, mpDrawing, mpHands, updateFrame, getKeyPress, resetKey, stopEvent):    
+def dataCollection(camera, hands, mpDrawing, mpHands, getKeyPress, resetKey, updateFrame):    
     landmarksCollection = []
+    
     collecting = False
+    shouldTrain = False
+    
     letter = None
+    
     collectionNumber = 0
     
     while camera.isOpened():
-        if stopEvent.is_set():
-            break
-        
         ret, frame = camera.read()
         
         if not ret:
@@ -70,6 +72,12 @@ def dataCollection(camera, hands, mpDrawing, mpHands, updateFrame, getKeyPress, 
         
         frameRgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         results = hands.process(frameRgb)
+        
+        if shouldTrain:
+            createModel()
+            shouldTrain = False
+            resetKey()
+            continue
         
         if results.multi_hand_landmarks:
             for handLandmarks in results.multi_hand_landmarks:
@@ -80,10 +88,14 @@ def dataCollection(camera, hands, mpDrawing, mpHands, updateFrame, getKeyPress, 
                     cv2.putText(frame, "Collecting data...", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
                 else:
                     cv2.putText(frame, "Press a letter to collect data.", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
-                    
-                letter = getKeyPress()
+                    cv2.putText(frame, "Press 'Enter' to train AI model.", (10, 65), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
+
+                if not collecting:
+                    letter = getKeyPress()
                 
-                if letter and not collecting:
+                if letter == 'Enter':
+                    shouldTrain = True
+                elif letter and not collecting:
                     print(f"Start collecting data for: {letter}")
                     
                     landmarksCollection = []
@@ -119,17 +131,14 @@ def dataCollection(camera, hands, mpDrawing, mpHands, updateFrame, getKeyPress, 
                         resetKey()
                         
                         print(f"Captured {letter} collection {collectionNumber}: {len(landmarksCollection)} snapshots stored in SQLite.")
-                        
+
         updateFrame(frame)
-        
+
 #=============================================================================================================================================
 
 #Function for normal video display
-def noDetection(camera, updateFrame, stopEvent):
+def noDetection(camera, updateFrame):
     while camera.isOpened():
-        if stopEvent.is_set():
-            break
-        
         ret, frame = camera.read()
         
         if not ret:
@@ -203,7 +212,7 @@ def interpolateSnapshots(landmarkCollection):
             fInterpret = interp1d(x, coords, axis=0, kind="linear", fill_value="extrapolate")
             interpolated.append(fInterpret(xNew))
             
-        return np.array(interpolated).transpose(1, 0, 2).toList()
+        return np.array(interpolated).transpose(1, 0, 2).tolist()
     
     return landmarkCollection
 
@@ -220,8 +229,10 @@ def downsampleSnapshots(landmarksCollection):
 
 #=============================================================================================================================================
 
-#Function to create AI model for letter detection
+# Function to create the AI model and automatically train it
 def createModel():
+    print("Creating model...")
+    
     model = Sequential([
         Flatten(input_shape=(Constants.COLLECTION_SNAPSHOTS, Constants.HAND_POINTS, Constants.COORD_POINTS)),
         Dense(128, activation='relu'),
@@ -231,18 +242,25 @@ def createModel():
     
     model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
     
+    print("Model created successfully!")
+    trainModel(model)
+
     return model
 
 #=============================================================================================================================================
 
-#Function to train the AI model
-def trainModel():
-    landmarkData = getLandmarks()
+# Function to train the AI model
+def trainModel(model):
+    print("Training model...")
 
-    x = []
-    y = []
+    landmarkData = getLandmarks()
+    x, y = [], []
     
     minSamples = min(len(landmarkList) for landmarkList in landmarkData.values())
+    
+    if minSamples == 0:
+        print("Error: Insufficient data! At least one sample is required per letter.")
+        return
     
     print(f"Training on {minSamples} samples per letter to balance the dataset.")
 
@@ -259,8 +277,7 @@ def trainModel():
                 x.append(landmarksArray)
                 y.append(list(Constants.LETTERS.values()).index(letter))
 
-    x = np.array(x)
-    y = np.array(y)
+    x, y = np.array(x), np.array(y)
 
     if x.size == 0:
         print("No data available! Please collect data first.")
@@ -268,10 +285,9 @@ def trainModel():
     
     x, y = shuffle(x, y, random_state=Constants.RANDOM_SEED)
 
-    model = createModel()
-    model.fit(x, y, epochs=2000, validation_split=0.2)
+    model.fit(x, y, epochs=Constants.EPOCHS, validation_split=0.2)
     model.save(Constants.MODEL_PATH)
 
-    print("Model trained and saved!")
+    print("Model trained and saved successfully!")
 
 #=============================================================================================================================================
