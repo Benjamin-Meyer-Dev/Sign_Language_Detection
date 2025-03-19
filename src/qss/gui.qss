@@ -1,0 +1,77 @@
+/*=====================================================*/
+/*General Styling*/
+
+QComboBox {
+    background-color: #4A4A4A;
+    color: #FFFFFF;
+    border-radius: 5px;
+    padding: 5px;
+    font-size: 14px;
+}
+
+QComboBox::drop-down {
+    width: 18px;
+}
+
+QComboBox QAbstractItemView {
+    color: #FFFFFF;
+    background-color: #5A5A5A;
+    selection-color: #FFFFFF;
+    selection-background-color: #7A7A7A;
+    border: none;
+}
+
+QComboBox QAbstractItemView QScrollBar:vertical {
+    width: 0px;
+}
+
+QLabel {
+    font-family: "Lato";
+    color: #FFFFFF;
+}
+
+/*=====================================================*/
+/*Specific Styling*/
+
+/*============================*/
+/*Entire GUI*/
+
+#mainWidget {
+    background-color: #1E1E1E;
+}
+
+/*============================*/
+/*Title Bar*/
+
+#programIcon {
+    padding-top: 1px;
+}
+
+#titleLabel {
+    font-size: 18px;
+    font-weight: bold;
+}
+
+#exitButton:pressed {
+    background-color: transparent;
+}
+
+/*============================*/
+/*User Section*/
+
+#exampleLabel, #AILabel {
+    font-size: 16px;
+}
+
+#exampleWindow, #AIWindow {
+    border: 2px solid white;
+}
+
+/*============================*/
+/*Footer*/
+
+#infoText, #author {
+    font-size: 14px;
+}
+
+/*=====================================================*/
