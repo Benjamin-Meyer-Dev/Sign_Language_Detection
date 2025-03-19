@@ -36,9 +36,13 @@ def liveDetection(camera, hands, imageLocation, updateImage, updateFrame):
                 landmarks = np.array([[lm.x, lm.y, lm.z] for lm in handLandmarks.landmark])
                 snapshots.append(landmarks)
                 
-                if len(snapshots) == constants.COLLECTION_SNAPSHOTS:
+                if len(snapshots) > constants.COLLECTION_SNAPSHOTS:
+                    snapshots.pop(0)
+                    
+                currentTime = time.time()
+                
+                if len(snapshots) == constants.COLLECTION_SNAPSHOTS and currentTime - lastPredictionTime > constants.PREDICTION_INTERVAL:
                     landmarksArray = np.array(snapshots).reshape(constants.COLLECTION_SNAPSHOTS, constants.HAND_POINTS, constants.COORD_POINTS)
-                    currentTime = time.time()
                     
                     if currentTime - lastPredictionTime > constants.PREDICTION_INTERVAL:
                         prediction = model.predict(landmarksArray.reshape(1, constants.COLLECTION_SNAPSHOTS, constants.HAND_POINTS, constants.COORD_POINTS))[0]  
@@ -57,7 +61,6 @@ def liveDetection(camera, hands, imageLocation, updateImage, updateFrame):
                             lastPredictionTime = currentTime
                         
                         updateImage(lastLetter, imageLocation)
-                        snapshots = []
         else:
             updateImage(None, imageLocation)
         
