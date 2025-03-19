@@ -53,15 +53,11 @@ def liveDetection(camera, hands, imageLocation, updateImage, updateFrame):
 
 #=============================================================================================================================================
 
-#Function to collect data for training
+# Function to collect data for training
 def dataCollection(camera, hands, mpDrawing, mpHands, getKeyPress, resetKey, updateFrame):    
     landmarksCollection = []
-    
     collecting = False
-    shouldTrain = False
-    
     letter = None
-    
     collectionNumber = 0
     
     while camera.isOpened():
@@ -72,64 +68,66 @@ def dataCollection(camera, hands, mpDrawing, mpHands, getKeyPress, resetKey, upd
         
         frameRgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         results = hands.process(frameRgb)
-        
-        if shouldTrain:
-            createModel()
-            shouldTrain = False
-            resetKey()
-            continue
-        
+
+        if collecting:
+            cv2.putText(frame, "Collecting data...", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
+        else:
+            cv2.putText(frame, "Press 'Enter' to train AI model.", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
+            
+            if results.multi_hand_landmarks:
+                cv2.putText(frame, "Press a letter to collect data.", (10, 65), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
+
+        if not collecting:
+            letter = getKeyPress()
+            
+            if letter == 'Enter':
+                createModel()
+                resetKey()
+                continue
+
         if results.multi_hand_landmarks:
             for handLandmarks in results.multi_hand_landmarks:
                 mpDrawing.draw_landmarks(frame, handLandmarks, mpHands.HAND_CONNECTIONS)
                 landmarks = np.array([[lm.x, lm.y, lm.z] for lm in handLandmarks.landmark])
-                
-                if collecting:
-                    cv2.putText(frame, "Collecting data...", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
-                else:
-                    cv2.putText(frame, "Press a letter to collect data.", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
-                    cv2.putText(frame, "Press 'Enter' to train AI model.", (10, 65), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
 
                 if not collecting:
                     letter = getKeyPress()
-                
-                if letter == 'Enter':
-                    shouldTrain = True
-                elif letter and not collecting:
+
+                if letter and letter != 'Enter' and not collecting:
                     print(f"Start collecting data for: {letter}")
-                    
+
                     landmarksCollection = []
                     collecting = True
-                    
+
                     startTime = time.time()
                     endTime = startTime + constants.COLLECTION_LENGTH
-                    
+
                     collectionNumber = getCollectionCount(letter) + 1
-                    
+
                     frameCount = 0
                     interval = constants.COLLECTION_LENGTH / constants.COLLECTION_SNAPSHOTS
-                    
+
                     nextCaptureTime = startTime
-                    
+
                 if collecting:
                     currentTime = time.time()
-                    
+
                     if currentTime >= nextCaptureTime:
                         landmarksCollection.append(landmarks.tolist())
                         frameCount += 1
                         nextCaptureTime += interval
-                        
+
                     if currentTime >= endTime or frameCount >= constants.COLLECTION_SNAPSHOTS:
                         collecting = False
-                        
+
                         if len(landmarksCollection) < constants.COLLECTION_SNAPSHOTS:
                             landmarksCollection = interpolateSnapshots(landmarksCollection)
                         elif len(landmarksCollection) > constants.COLLECTION_SNAPSHOTS:
                             landmarksCollection = downsampleSnapshots(landmarksCollection)
-                            
+
                         insertLandmarks(letter, landmarksCollection)
                         resetKey()
-                        
+
                         print(f"Captured {letter} collection {collectionNumber}: {len(landmarksCollection)} snapshots stored in SQLite.")
 
         updateFrame(frame)
