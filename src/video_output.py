@@ -3,6 +3,7 @@ import constants
 import json
 import random
 import sqlite3
+import threading
 import time
 
 import numpy as np
@@ -20,7 +21,7 @@ def liveDetection(camera, hands, imageLocation, updateImage, updateFrame):
     model = tf.keras.models.load_model(constants.MODEL_PATH)
     snapshots = []
     lastLetter = None
-    lastPredictionTime = time.time()
+    consecutiveConfidences = 0
     
     while camera.isOpened():
         ret, frame = camera.read()
@@ -33,33 +34,28 @@ def liveDetection(camera, hands, imageLocation, updateImage, updateFrame):
 
         if results.multi_hand_landmarks:
             for handLandmarks in results.multi_hand_landmarks:
-                landmarks = np.array([[lm.x, lm.y, lm.z] for lm in handLandmarks.landmark])
-                snapshots.append(landmarks)
+                snapshots.append(np.array([[lm.x, lm.y, lm.z] for lm in handLandmarks.landmark]))
                 
                 if len(snapshots) > constants.COLLECTION_SNAPSHOTS:
                     snapshots.pop(0)
-                    
-                currentTime = time.time()
                 
-                if len(snapshots) == constants.COLLECTION_SNAPSHOTS and currentTime - lastPredictionTime > constants.PREDICTION_INTERVAL:
+                if len(snapshots) == constants.COLLECTION_SNAPSHOTS:
                     landmarksArray = np.array(snapshots).reshape(constants.COLLECTION_SNAPSHOTS, constants.HAND_POINTS, constants.COORD_POINTS)
+                    prediction = model.predict(landmarksArray.reshape(1, constants.COLLECTION_SNAPSHOTS, constants.HAND_POINTS, constants.COORD_POINTS))[0]  
                     
-                    if currentTime - lastPredictionTime > constants.PREDICTION_INTERVAL:
-                        prediction = model.predict(landmarksArray.reshape(1, constants.COLLECTION_SNAPSHOTS, constants.HAND_POINTS, constants.COORD_POINTS))[0]  
+                    topPrediction = np.argmax(prediction)
+                    bestLetter = constants.LETTERS[topPrediction]
+                    bestConfidence = prediction[topPrediction]
+                        
+                    print(f"{round(bestConfidence * 100, 2)}% confident in {bestLetter}")
+                        
+                    if bestConfidence > constants.CONFIDENCE_THRESHOLD:
+                        consecutiveConfidences += 1
+                    else:
+                        consecutiveConfidences = 0
                     
-                        topPrediction = np.argmax(prediction)
-                        bestLetter = constants.LETTERS[topPrediction]
-                        bestConfidence = prediction[topPrediction]
-                        
-                        print(f"{round(bestConfidence * 100, 2)}% confident in {bestLetter}")
-                        
-                        if bestConfidence < constants.CONFIDENCE_THRESHOLD:
-                            bestLetter = lastLetter
-
-                        if bestLetter != lastLetter:
-                            lastLetter = bestLetter
-                            lastPredictionTime = currentTime
-                        
+                    if consecutiveConfidences >= constants.CONFIDENCE_CHECKS and bestLetter != lastLetter:                        
+                        lastLetter = bestLetter
                         updateImage(lastLetter, imageLocation)
         else:
             updateImage(None, imageLocation)

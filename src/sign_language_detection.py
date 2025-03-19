@@ -354,14 +354,19 @@ class SignLanguageDetection(QMainWindow):
     
     # Function to update the example and AI guess images
     def updateExampleAIImage(self, letter, imageLabel):
+        if imageLabel is None:
+            return
+        
         if not letter or not os.path.exists(os.path.join(constants.LETTER_EXAMPELS_PATH, f"{letter.upper()}.png")):
             imageLabel.clear()
             return
         
         imagePath = os.path.join(constants.LETTER_EXAMPELS_PATH, f"{letter.upper()}.png")
         pixmap = QPixmap(imagePath)
-        imageLabel.setPixmap(pixmap.scaled(imageLabel.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
-
+        
+        if not pixmap.isNull():
+            imageLabel.setPixmap(pixmap.scaled(imageLabel.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        
     #=============================================================================================================================================
 
     # Function to run the data collection mode
