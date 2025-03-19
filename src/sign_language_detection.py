@@ -33,6 +33,7 @@ class SignLanguageDetection(QMainWindow):
         self.setWindowTitle("Sign Language Detection")        
         self._dragPos = None
         self.model = None
+        self.liveDetection = False
         
         self.initializeDatabase()
         self.generalSetup()
@@ -46,7 +47,10 @@ class SignLanguageDetection(QMainWindow):
         
         self.setupUserInteraction()
         self.setupExampleSignSection()
-        self.setupAIOutputSection()
+        
+        if os.path.exists(constants.MODEL_PATH):
+            self.liveDetection = True
+            self.setupAIOutputSection()
         
         self.setupFooter()
         
@@ -54,10 +58,10 @@ class SignLanguageDetection(QMainWindow):
         
         self.setupCamera()
         
-        if not os.path.exists(constants.MODEL_PATH):
-            self.dataCollectionMode()
-        else:
+        if self.liveDetection:
             self.liveDetectionMode()
+        else:
+            self.dataCollectionMode()
     
     #=============================================================================================================================================
     
@@ -245,12 +249,13 @@ class SignLanguageDetection(QMainWindow):
         self.exampleLayout.addWidget(self.dropdownMenu)
         self.exampleLayout.addWidget(self.exampleImage)
         
-        self.AILayout.addWidget(self.AIImage)
-        
         self.userLayout.addWidget(self.exampleLabel)
         self.userLayout.addWidget(self.exampleWindow)
-        self.userLayout.addWidget(self.AILabel)
-        self.userLayout.addWidget(self.AIWindow)
+        
+        if self.liveDetection:
+            self.AILayout.addWidget(self.AIImage)
+            self.userLayout.addWidget(self.AILabel)
+            self.userLayout.addWidget(self.AIWindow)
         
         self.contentLayout.addWidget(self.videoOutput)
         self.contentLayout.addWidget(self.userItems)
