@@ -9,7 +9,7 @@ RANDOM_SEED = 42
 
 COLLECTION_LENGTH = 2
 COLLECTION_SNAPSHOTS = 30
-EPOCHS = 1000
+EPOCHS = 1500
 
 EXIT_BUTTON_SIZE = 20
 FOOTER_HEIGHT = 30
@@ -26,6 +26,6 @@ LETTER_EXAMPELS_PATH = "../Images/Letter Examples"
 MODEL_PATH = "../Model/sign_language_model.keras"
 PROGRAM_ICON_PATH = "../Images/program_icon.svg"
 
-LETTERS = {i: letter for i, letter in enumerate(string.ascii_uppercase[:9])}
+LETTERS = {i: letter for i, letter in enumerate(string.ascii_uppercase[:12])}
 
 #=============================================================================================================================================

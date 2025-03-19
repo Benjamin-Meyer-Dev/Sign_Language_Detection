@@ -10,7 +10,7 @@ import tensorflow as tf
 
 from scipy.interpolate import interp1d
 from sklearn.utils import shuffle
-from tensorflow.keras.layers import Dense, Dropout, Flatten
+from tensorflow.keras.layers import Dense, Dropout, Flatten, Input
 from tensorflow.keras.models import Sequential
 
 #=============================================================================================================================================
@@ -222,7 +222,8 @@ def createModel():
     print("Creating model...")
     
     model = Sequential([
-        Flatten(input_shape=(constants.COLLECTION_SNAPSHOTS, constants.HAND_POINTS, constants.COORD_POINTS)),
+        Input(shape=(constants.COLLECTION_SNAPSHOTS, constants.HAND_POINTS, constants.COORD_POINTS)),
+        Flatten(),
         Dense(128, activation='relu'),
         Dropout(0.2),
         Dense(64, activation='relu'),
