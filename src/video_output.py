@@ -15,7 +15,7 @@ from tensorflow.keras.models import Sequential
 
 #=============================================================================================================================================
 
-#Function for live sign language detection
+# Function for live sign language detection
 def liveDetection(camera, hands, imageLocation, updateImage, updateFrame):    
     model = tf.keras.models.load_model(constants.MODEL_PATH)
     snapshots = []
@@ -38,11 +38,17 @@ def liveDetection(camera, hands, imageLocation, updateImage, updateFrame):
                 if len(snapshots) == constants.COLLECTION_SNAPSHOTS:
                     landmarksArray = np.array(snapshots).reshape(constants.COLLECTION_SNAPSHOTS, constants.HAND_POINTS, constants.COORD_POINTS)
 
-                    prediction = model.predict(landmarksArray.reshape(1, constants.COLLECTION_SNAPSHOTS, constants.HAND_POINTS, constants.COORD_POINTS))                    
-                    letter = constants.LETTERS[np.argmax(prediction)]
+                    prediction = model.predict(landmarksArray.reshape(1, constants.COLLECTION_SNAPSHOTS, constants.HAND_POINTS, constants.COORD_POINTS))[0]  
                     
-                    if letter != lastLetter:
-                        lastLetter = letter
+                    topPrediction = np.argmax(prediction)
+                    bestLetter = constants.LETTERS[topPrediction]
+                    bestConfidence = prediction[topPrediction]
+                    
+                    if bestConfidence < constants.CONFIDENCE_THRESHOLD:
+                        bestLetter = None
+
+                    if bestLetter != lastLetter:
+                        lastLetter = bestLetter
                     
                     updateImage(lastLetter, imageLocation)
                     snapshots = []
