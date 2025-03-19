@@ -81,6 +81,14 @@ class SignLanguageDetection(QMainWindow):
             )
             
             cursor.execute(f"DELETE FROM {letter} WHERE collectionSet > 30")
+            
+            cursor.execute(f"SELECT MAX(collectionSet) FROM {letter}")
+            lastCollectionSet = cursor.fetchone()[0]
+            
+            if lastCollectionSet is None:
+                lastCollectionSet = 0
+            
+            cursor.execute(f"UPDATE SQLITE_SEQUENCE SET SEQ = ? WHERE NAME = ?", (lastCollectionSet, letter))
 
         conn.commit()
         conn.close()
@@ -302,7 +310,7 @@ class SignLanguageDetection(QMainWindow):
         
         if key == constants.ENTER_KEYCODE:
             self.currentKey = 'Enter'
-        elif chr(key).upper() in constants.LETTERS.values():
+        elif constants.A_KEYCODE <= key <= constants.Z_KEYCODE and chr(key).upper() in constants.LETTERS.values():
             self.currentKey = chr(key).upper()
         else:
             self.currentKey = None
@@ -335,7 +343,7 @@ class SignLanguageDetection(QMainWindow):
         
     #=============================================================================================================================================
     
-    #Function to run the live detection mode
+    # Function to run the live detection mode
     def liveDetectionMode(self):
         self.activeThread = threading.Thread(target=liveDetection, args=(self.camera, self.hands, self.AIImage, self.updateExampleAIImage, self.updateFrame), daemon=True)
         self.activeThread.start()
@@ -344,7 +352,7 @@ class SignLanguageDetection(QMainWindow):
         
     #=============================================================================================================================================
     
-    #Function to update the example and AI guess images
+    # Function to update the example and AI guess images
     def updateExampleAIImage(self, letter, imageLabel):
         if not letter or not os.path.exists(os.path.join(constants.LETTER_EXAMPELS_PATH, f"{letter.upper()}.png")):
             imageLabel.clear()
@@ -377,6 +385,7 @@ class SignLanguageDetection(QMainWindow):
 
 #=============================================================================================================================================
 
+# Main function to run the program
 if __name__ == "__main__":    
     app = QApplication(sys.argv)
     app.setWindowIcon(QIcon(constants.PROGRAM_ICON_PATH))

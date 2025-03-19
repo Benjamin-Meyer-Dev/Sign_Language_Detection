@@ -2,7 +2,7 @@ import string
 
 #=============================================================================================================================================
 
-#Constants used throughout the program
+# Constants used throughout the program
 COORD_POINTS = 3
 HAND_POINTS = 21
 RANDOM_SEED = 42
@@ -17,7 +17,10 @@ FOOTER_HEIGHT = 30
 PROGRAM_ICON_SIZE = 25
 TITLE_BAR_HEIGHT = 40
 
+A_KEYCODE = 65
+Z_KEYCODE = 90
 ENTER_KEYCODE = 16777220
+
 WEBCAM_UPDATE = 60
 
 DATABASE_PATH = "../database/sign_language.db"
@@ -27,6 +30,6 @@ LETTER_EXAMPELS_PATH = "../images/Letter Examples"
 MODEL_PATH = "../model/sign_language_model.keras"
 PROGRAM_ICON_PATH = "../images/program_icon.svg"
 
-LETTERS = {i: letter for i, letter in enumerate(string.ascii_uppercase[:12])}
+LETTERS = {i: letter for i, letter in enumerate(string.ascii_uppercase[:15])}
 
 #=============================================================================================================================================
