@@ -20,6 +20,7 @@ def liveDetection(camera, hands, imageLocation, updateImage, updateFrame):
     model = tf.keras.models.load_model(constants.MODEL_PATH)
     snapshots = []
     lastLetter = None
+    lastPredictionTime = time.time()
     
     while camera.isOpened():
         ret, frame = camera.read()
@@ -37,21 +38,26 @@ def liveDetection(camera, hands, imageLocation, updateImage, updateFrame):
                 
                 if len(snapshots) == constants.COLLECTION_SNAPSHOTS:
                     landmarksArray = np.array(snapshots).reshape(constants.COLLECTION_SNAPSHOTS, constants.HAND_POINTS, constants.COORD_POINTS)
+                    currentTime = time.time()
+                    
+                    if currentTime - lastPredictionTime > constants.PREDICTION_INTERVAL:
+                        prediction = model.predict(landmarksArray.reshape(1, constants.COLLECTION_SNAPSHOTS, constants.HAND_POINTS, constants.COORD_POINTS))[0]  
+                    
+                        topPrediction = np.argmax(prediction)
+                        bestLetter = constants.LETTERS[topPrediction]
+                        bestConfidence = prediction[topPrediction]
+                        
+                        print(f"{round(bestConfidence * 100, 2)}% confident in {bestLetter}")
+                        
+                        if bestConfidence < constants.CONFIDENCE_THRESHOLD:
+                            bestLetter = lastLetter
 
-                    prediction = model.predict(landmarksArray.reshape(1, constants.COLLECTION_SNAPSHOTS, constants.HAND_POINTS, constants.COORD_POINTS))[0]  
-                    
-                    topPrediction = np.argmax(prediction)
-                    bestLetter = constants.LETTERS[topPrediction]
-                    bestConfidence = prediction[topPrediction]
-                    
-                    if bestConfidence < constants.CONFIDENCE_THRESHOLD:
-                        bestLetter = None
-
-                    if bestLetter != lastLetter:
-                        lastLetter = bestLetter
-                    
-                    updateImage(lastLetter, imageLocation)
-                    snapshots = []
+                        if bestLetter != lastLetter:
+                            lastLetter = bestLetter
+                            lastPredictionTime = currentTime
+                        
+                        updateImage(lastLetter, imageLocation)
+                        snapshots = []
         else:
             updateImage(None, imageLocation)
         
