@@ -1,5 +1,5 @@
 import cv2
-import Constants
+import constants
 import json
 import random
 import sqlite3
@@ -10,14 +10,14 @@ import tensorflow as tf
 
 from scipy.interpolate import interp1d
 from sklearn.utils import shuffle
-from tensorflow.keras.layers import Dense, Flatten
+from tensorflow.keras.layers import Dense, Dropout, Flatten
 from tensorflow.keras.models import Sequential
 
 #=============================================================================================================================================
 
 #Function for live sign language detection
 def liveDetection(camera, hands, imageLocation, updateImage, updateFrame):    
-    model = tf.keras.models.load_model(Constants.MODEL_PATH)
+    model = tf.keras.models.load_model(constants.MODEL_PATH)
     snapshots = []
     lastLetter = None
     
@@ -35,11 +35,11 @@ def liveDetection(camera, hands, imageLocation, updateImage, updateFrame):
                 landmarks = np.array([[lm.x, lm.y, lm.z] for lm in handLandmarks.landmark])
                 snapshots.append(landmarks)
                 
-                if len(snapshots) == Constants.COLLECTION_SNAPSHOTS:
-                    landmarksArray = np.array(snapshots).reshape(Constants.COLLECTION_SNAPSHOTS, Constants.HAND_POINTS, Constants.COORD_POINTS)
+                if len(snapshots) == constants.COLLECTION_SNAPSHOTS:
+                    landmarksArray = np.array(snapshots).reshape(constants.COLLECTION_SNAPSHOTS, constants.HAND_POINTS, constants.COORD_POINTS)
 
-                    prediction = model.predict(landmarksArray.reshape(1, Constants.COLLECTION_SNAPSHOTS, Constants.HAND_POINTS, Constants.COORD_POINTS))
-                    letter = Constants.LETTERS[np.argmax(prediction)]
+                    prediction = model.predict(landmarksArray.reshape(1, constants.COLLECTION_SNAPSHOTS, constants.HAND_POINTS, constants.COORD_POINTS))                    
+                    letter = constants.LETTERS[np.argmax(prediction)]
                     
                     if letter != lastLetter:
                         lastLetter = letter
@@ -102,12 +102,12 @@ def dataCollection(camera, hands, mpDrawing, mpHands, getKeyPress, resetKey, upd
                     collecting = True
                     
                     startTime = time.time()
-                    endTime = startTime + Constants.COLLECTION_LENGTH
+                    endTime = startTime + constants.COLLECTION_LENGTH
                     
                     collectionNumber = getCollectionCount(letter) + 1
                     
                     frameCount = 0
-                    interval = Constants.COLLECTION_LENGTH / Constants.COLLECTION_SNAPSHOTS
+                    interval = constants.COLLECTION_LENGTH / constants.COLLECTION_SNAPSHOTS
                     
                     nextCaptureTime = startTime
                     
@@ -119,12 +119,12 @@ def dataCollection(camera, hands, mpDrawing, mpHands, getKeyPress, resetKey, upd
                         frameCount += 1
                         nextCaptureTime += interval
                         
-                    if currentTime >= endTime or frameCount >= Constants.COLLECTION_SNAPSHOTS:
+                    if currentTime >= endTime or frameCount >= constants.COLLECTION_SNAPSHOTS:
                         collecting = False
                         
-                        if len(landmarksCollection) < Constants.COLLECTION_SNAPSHOTS:
+                        if len(landmarksCollection) < constants.COLLECTION_SNAPSHOTS:
                             landmarksCollection = interpolateSnapshots(landmarksCollection)
-                        elif len(landmarksCollection) > Constants.COLLECTION_SNAPSHOTS:
+                        elif len(landmarksCollection) > constants.COLLECTION_SNAPSHOTS:
                             landmarksCollection = downsampleSnapshots(landmarksCollection)
                             
                         insertLandmarks(letter, landmarksCollection)
@@ -136,21 +136,9 @@ def dataCollection(camera, hands, mpDrawing, mpHands, getKeyPress, resetKey, upd
 
 #=============================================================================================================================================
 
-#Function for normal video display
-def noDetection(camera, updateFrame):
-    while camera.isOpened():
-        ret, frame = camera.read()
-        
-        if not ret:
-            break
-        
-        updateFrame(frame)
-
-#=============================================================================================================================================
-
 #Function to access the database for collection count
 def getCollectionCount(letter):
-    conn = sqlite3.connect(Constants.DATABASE_PATH)
+    conn = sqlite3.connect(constants.DATABASE_PATH)
     cursor = conn.cursor()
     
     try:
@@ -165,12 +153,12 @@ def getCollectionCount(letter):
 
 #Function to get the landmark data from the database
 def getLandmarks():
-    conn = sqlite3.connect(Constants.DATABASE_PATH)
+    conn = sqlite3.connect(constants.DATABASE_PATH)
     cursor = conn.cursor()
     
     landmarkData = {}
     
-    for letter in Constants.LETTERS.values():
+    for letter in constants.LETTERS.values():
         cursor.execute(f"SELECT landmarks FROM {letter}")
         rows = cursor.fetchall()
         landmarkData[letter] = [json.loads(row[0]) for row in rows]
@@ -183,7 +171,7 @@ def getLandmarks():
 
 #Fucntion to insert landmark data into the database
 def insertLandmarks(letter, landmarksCollection):
-    conn = sqlite3.connect(Constants.DATABASE_PATH)
+    conn = sqlite3.connect(constants.DATABASE_PATH)
     cursor = conn.cursor()
 
     try:
@@ -201,13 +189,13 @@ def insertLandmarks(letter, landmarksCollection):
 def interpolateSnapshots(landmarkCollection):
     actualSnapshots = len(landmarkCollection)
     
-    if actualSnapshots < Constants.COLLECTION_SNAPSHOTS:
+    if actualSnapshots < constants.COLLECTION_SNAPSHOTS:
         x = np.linspace(0, 1, actualSnapshots)
-        xNew = np.linspace(0, 1, Constants.COLLECTION_SNAPSHOTS)
+        xNew = np.linspace(0, 1, constants.COLLECTION_SNAPSHOTS)
         
         interpolated = []
         
-        for i in range(Constants.HAND_POINTS):
+        for i in range(constants.HAND_POINTS):
             coords = np.array([frame[i] for frame in landmarkCollection])
             fInterpret = interp1d(x, coords, axis=0, kind="linear", fill_value="extrapolate")
             interpolated.append(fInterpret(xNew))
@@ -222,8 +210,8 @@ def interpolateSnapshots(landmarkCollection):
 def downsampleSnapshots(landmarksCollection):
     actualSnapshots = len(landmarksCollection)
     
-    if actualSnapshots > Constants.COLLECTION_SNAPSHOTS:
-        return [landmarksCollection[i] for i in np.linspace(0, actualSnapshots - 1, Constants.COLLECTION_SNAPSHOTS).astype(int)]
+    if actualSnapshots > constants.COLLECTION_SNAPSHOTS:
+        return [landmarksCollection[i] for i in np.linspace(0, actualSnapshots - 1, constants.COLLECTION_SNAPSHOTS).astype(int)]
     
     return landmarksCollection
 
@@ -234,10 +222,11 @@ def createModel():
     print("Creating model...")
     
     model = Sequential([
-        Flatten(input_shape=(Constants.COLLECTION_SNAPSHOTS, Constants.HAND_POINTS, Constants.COORD_POINTS)),
+        Flatten(input_shape=(constants.COLLECTION_SNAPSHOTS, constants.HAND_POINTS, constants.COORD_POINTS)),
         Dense(128, activation='relu'),
+        Dropout(0.2),
         Dense(64, activation='relu'),
-        Dense(len(Constants.LETTERS), activation='softmax')
+        Dense(len(constants.LETTERS), activation='softmax')
     ])
     
     model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
@@ -271,11 +260,11 @@ def trainModel(model):
             selected_samples = landmarkList
 
         for landmarksCollection in selected_samples:
-            if len(landmarksCollection) == Constants.COLLECTION_SNAPSHOTS:
-                landmarksArray = np.array(landmarksCollection).reshape(Constants.COLLECTION_SNAPSHOTS, Constants.HAND_POINTS, Constants.COORD_POINTS)
+            if len(landmarksCollection) == constants.COLLECTION_SNAPSHOTS:
+                landmarksArray = np.array(landmarksCollection).reshape(constants.COLLECTION_SNAPSHOTS, constants.HAND_POINTS, constants.COORD_POINTS)
                 
                 x.append(landmarksArray)
-                y.append(list(Constants.LETTERS.values()).index(letter))
+                y.append(list(constants.LETTERS.values()).index(letter))
 
     x, y = np.array(x), np.array(y)
 
@@ -283,10 +272,10 @@ def trainModel(model):
         print("No data available! Please collect data first.")
         return
     
-    x, y = shuffle(x, y, random_state=Constants.RANDOM_SEED)
+    x, y = shuffle(x, y, random_state=constants.RANDOM_SEED)
 
-    model.fit(x, y, epochs=Constants.EPOCHS, validation_split=0.2)
-    model.save(Constants.MODEL_PATH)
+    model.fit(x, y, epochs=constants.EPOCHS, validation_split=0.2)
+    model.save(constants.MODEL_PATH)
 
     print("Model trained and saved successfully!")
 

@@ -23,7 +23,7 @@ DATABASE_PATH = "../Database/sign_language.db"
 EXIT_ICON_PATH = "../Images/exit_icon.svg"
 GUI_STYLING_PATH = "./QSS/gui.qss"
 LETTER_EXAMPELS_PATH = "../Images/Letter Examples"
-MODEL_PATH = "../Model/sign_language_model.h5"
+MODEL_PATH = "../Model/sign_language_model.keras"
 PROGRAM_ICON_PATH = "../Images/program_icon.svg"
 
 LETTERS = {i: letter for i, letter in enumerate(string.ascii_uppercase[:9])}

@@ -1,5 +1,5 @@
 import cv2
-import Constants
+import constants
 import datetime
 import os
 import sqlite3
@@ -13,9 +13,8 @@ from PyQt5.QtCore import Qt, QSize, QTimer
 from PyQt5.QtGui import QIcon, QImage, QPixmap
 from PyQt5.QtWidgets import QApplication, QComboBox, QHBoxLayout, QLabel, QMainWindow, QPushButton, QVBoxLayout, QWidget
 
-from Video_Outputs import liveDetection
-from Video_Outputs import dataCollection
-from Video_Outputs import noDetection
+from video_output import liveDetection
+from video_output import dataCollection
 
 #=============================================================================================================================================
 
@@ -28,7 +27,7 @@ class SignLanguageDetection(QMainWindow):
     def __init__(self):
         super().__init__()
         
-        with open(Constants.GUI_STYLING_PATH, "r") as file:
+        with open(constants.GUI_STYLING_PATH, "r") as file:
             self.setStyleSheet(file.read())
         
         self.setWindowTitle("Sign Language Detection")        
@@ -55,8 +54,8 @@ class SignLanguageDetection(QMainWindow):
         
         self.setupCamera()
         
-        if not os.path.exists(Constants.MODEL_PATH):
-            self.noDetectionMode()
+        if not os.path.exists(constants.MODEL_PATH):
+            self.dataCollectionMode()
         else:
             self.liveDetectionMode()
     
@@ -64,10 +63,10 @@ class SignLanguageDetection(QMainWindow):
     
     # Function to initialize the database if needed
     def initializeDatabase(self):
-        conn = sqlite3.connect(Constants.DATABASE_PATH)
+        conn = sqlite3.connect(constants.DATABASE_PATH)
         cursor = conn.cursor()
 
-        for letter in Constants.LETTERS.values():
+        for letter in constants.LETTERS.values():
             cursor.execute(
                 f'''
                 CREATE TABLE IF NOT EXISTS {letter} (
@@ -120,7 +119,7 @@ class SignLanguageDetection(QMainWindow):
     # Function to set up the title bar
     def setupTitleBar(self):
         self.titleBar = QWidget(self)
-        self.titleBar.setFixedHeight(Constants.TITLE_BAR_HEIGHT)
+        self.titleBar.setFixedHeight(constants.TITLE_BAR_HEIGHT)
 
         self.titleLayout = QHBoxLayout(self.titleBar)
         self.titleLayout.setContentsMargins(0, 0, 0, 0)
@@ -128,8 +127,8 @@ class SignLanguageDetection(QMainWindow):
         
         self.programIcon = QLabel(self.titleBar)
         self.programIcon.setObjectName("programIcon")
-        self.programIcon.setFixedSize(Constants.PROGRAM_ICON_SIZE, Constants.PROGRAM_ICON_SIZE)
-        self.programIcon.setPixmap(QPixmap(Constants.PROGRAM_ICON_PATH))
+        self.programIcon.setFixedSize(constants.PROGRAM_ICON_SIZE, constants.PROGRAM_ICON_SIZE)
+        self.programIcon.setPixmap(QPixmap(constants.PROGRAM_ICON_PATH))
         self.programIcon.setScaledContents(True)
 
         self.titleLabel = QLabel("Sign Language Detection")
@@ -137,9 +136,9 @@ class SignLanguageDetection(QMainWindow):
 
         self.exitButton = QPushButton(self)
         self.exitButton.setObjectName("exitButton")
-        self.exitButton.setFixedSize(Constants.EXIT_BUTTON_SIZE, Constants.EXIT_BUTTON_SIZE)
-        self.exitButton.setIcon(QIcon(Constants.EXIT_ICON_PATH))
-        self.exitButton.setIconSize(QSize(Constants.EXIT_BUTTON_SIZE - 2, Constants.EXIT_BUTTON_SIZE - 2))
+        self.exitButton.setFixedSize(constants.EXIT_BUTTON_SIZE, constants.EXIT_BUTTON_SIZE)
+        self.exitButton.setIcon(QIcon(constants.EXIT_ICON_PATH))
+        self.exitButton.setIconSize(QSize(constants.EXIT_BUTTON_SIZE - 2, constants.EXIT_BUTTON_SIZE - 2))
         self.exitButton.setFlat(True)
         self.exitButton.clicked.connect(self.close)
 
@@ -190,7 +189,7 @@ class SignLanguageDetection(QMainWindow):
         self.exampleImage.setFixedSize(135, 140)
 
         self.dropdownMenu = QComboBox(self.exampleWindow)
-        self.dropdownMenu.addItems(Constants.LETTERS.values())
+        self.dropdownMenu.addItems(constants.LETTERS.values())
         self.dropdownMenu.setFocusPolicy(Qt.NoFocus)
         self.dropdownMenu.currentIndexChanged.connect(lambda: self.updateExampleAIImage(self.dropdownMenu.currentText(), self.exampleImage))
 
@@ -218,7 +217,7 @@ class SignLanguageDetection(QMainWindow):
     # Function to set up the footer section
     def setupFooter(self):
         self.footer = QWidget(self)
-        self.footer.setFixedHeight(Constants.FOOTER_HEIGHT)
+        self.footer.setFixedHeight(constants.FOOTER_HEIGHT)
 
         self.footerLayout = QHBoxLayout(self.footer)
         self.footerLayout.setContentsMargins(0, 0, 0, 0)
@@ -296,9 +295,9 @@ class SignLanguageDetection(QMainWindow):
     def keyPressEvent(self, event):
         key = event.key()
         
-        if key == Constants.ENTER_KEYCODE:
+        if key == constants.ENTER_KEYCODE:
             self.currentKey = 'Enter'
-        elif chr(key).upper() in Constants.LETTERS.values():
+        elif chr(key).upper() in constants.LETTERS.values():
             self.currentKey = chr(key).upper()
         else:
             self.currentKey = None
@@ -309,7 +308,7 @@ class SignLanguageDetection(QMainWindow):
     def setupCamera(self):
         self.timer = QTimer()
         self.timer.timeout.connect(self.cameraOutput)
-        self.timer.start(Constants.WEBCAM_UPDATE)
+        self.timer.start(constants.WEBCAM_UPDATE)
 
     #=============================================================================================================================================
     
@@ -342,11 +341,11 @@ class SignLanguageDetection(QMainWindow):
     
     #Function to update the example and AI guess images
     def updateExampleAIImage(self, letter, imageLabel):
-        if not letter or not os.path.exists(os.path.join(Constants.LETTER_EXAMPELS_PATH, f"{letter.upper()}.png")):
+        if not letter or not os.path.exists(os.path.join(constants.LETTER_EXAMPELS_PATH, f"{letter.upper()}.png")):
             imageLabel.clear()
             return
         
-        imagePath = os.path.join(Constants.LETTER_EXAMPELS_PATH, f"{letter.upper()}.png")
+        imagePath = os.path.join(constants.LETTER_EXAMPELS_PATH, f"{letter.upper()}.png")
         pixmap = QPixmap(imagePath)
         imageLabel.setPixmap(pixmap.scaled(imageLabel.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
 
@@ -370,21 +369,12 @@ class SignLanguageDetection(QMainWindow):
     # Function to set the last pressed key to none
     def setCurrentKey(self):
         self.currentKey = None
-        
-    #=============================================================================================================================================
-        
-    #Function to run the live detection mode
-    def noDetectionMode(self):
-        self.activeThread = threading.Thread(target=noDetection, args=(self.camera, self.updateFrame), daemon=True)
-        self.activeThread.start()
-        
-        self.infoText.setText("No trained model found! Please use the trained model from the Github repo, or create your own.")
 
 #=============================================================================================================================================
 
 if __name__ == "__main__":    
     app = QApplication(sys.argv)
-    app.setWindowIcon(QIcon(Constants.PROGRAM_ICON_PATH))
+    app.setWindowIcon(QIcon(constants.PROGRAM_ICON_PATH))
     
     window = SignLanguageDetection()
     window.show()
