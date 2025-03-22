@@ -30,10 +30,13 @@ class SignLanguageDetection(QMainWindow):
         with open(constants.GUI_STYLING_PATH, "r") as file:
             self.setStyleSheet(file.read())
         
-        self.setWindowTitle("Sign Language Detection")        
+        self.setWindowTitle("Sign Language Detection")    
+            
         self._dragPos = None
         self.model = None
+        self.activeThread = None
         self.liveDetection = False
+        self.stopThread = False
         
         self.initializeDatabase()
         self.generalSetup()
@@ -279,6 +282,16 @@ class SignLanguageDetection(QMainWindow):
         
     #=============================================================================================================================================
 
+    # Event handler for program close
+    def closeEvent(self, event):        
+        if self.activeThread:
+            self.stopThread = True
+            self.activeThread.join()
+            
+        event.accept()
+
+    #=============================================================================================================================================
+
     # Event handler for mouse press
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
@@ -345,7 +358,7 @@ class SignLanguageDetection(QMainWindow):
     
     # Function to run the live detection mode
     def liveDetectionMode(self):
-        self.activeThread = threading.Thread(target=liveDetection, args=(self.camera, self.hands, self.AIImage, self.updateExampleAIImage, self.updateFrame), daemon=True)
+        self.activeThread = threading.Thread(target=liveDetection, args=(self.camera, self.hands, self.AIImage, self.updateExampleAIImage, self.updateFrame, self.getStopThread), daemon=True)
         self.activeThread.start()
         
         self.infoText.setText("AI now detecting sign language letters.")
@@ -354,9 +367,9 @@ class SignLanguageDetection(QMainWindow):
     
     # Function to update the example and AI guess images
     def updateExampleAIImage(self, letter, imageLabel):
-        if imageLabel is None or imageLabel.isDeleted():
+        if imageLabel is None:
             return
-        
+    
         if not letter or not os.path.exists(os.path.join(constants.LETTER_EXAMPELS_PATH, f"{letter.upper()}.png")):
             imageLabel.clear()
             return
@@ -371,7 +384,7 @@ class SignLanguageDetection(QMainWindow):
 
     # Function to run the data collection mode
     def dataCollectionMode(self):
-        self.activeThread = threading.Thread(target=dataCollection, args=(self.camera, self.hands, self.mpDrawing, self.mpHands, self.getKeyPress, self.setCurrentKey, self.updateFrame,), daemon=True)
+        self.activeThread = threading.Thread(target=dataCollection, args=(self.camera, self.hands, self.mpDrawing, self.mpHands, self.getKeyPress, self.setCurrentKey, self.updateFrame, self.getStopThread), daemon=True)
         self.activeThread.start()
         
         self.infoText.setText("Now collecting new letter data.")
@@ -381,6 +394,12 @@ class SignLanguageDetection(QMainWindow):
     # Function to get the last pressed key
     def getKeyPress(self):
         return self.currentKey
+    
+    #=============================================================================================================================================
+    
+    # Function to get the current stop thread value
+    def getStopThread(self):
+        return self.stopThread
     
     #=============================================================================================================================================
 

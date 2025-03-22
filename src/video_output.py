@@ -3,7 +3,6 @@ import constants
 import json
 import random
 import sqlite3
-import threading
 import time
 
 import numpy as np
@@ -13,17 +12,21 @@ from scipy.interpolate import interp1d
 from sklearn.utils import shuffle
 from tensorflow.keras.layers import Dense, Dropout, Flatten, Input
 from tensorflow.keras.models import Sequential
+from tensorflow.keras.regularizers import l2
 
 #=============================================================================================================================================
 
 # Function for live sign language detection
-def liveDetection(camera, hands, imageLocation, updateImage, updateFrame):    
+def liveDetection(camera, hands, imageLocation, updateImage, updateFrame, stopRunning):    
     model = tf.keras.models.load_model(constants.MODEL_PATH)
     snapshots = []
     lastLetter = None
     consecutiveConfidences = 0
     
     while camera.isOpened():
+        if stopRunning():
+            break
+        
         ret, frame = camera.read()
         
         if not ret:
@@ -65,13 +68,16 @@ def liveDetection(camera, hands, imageLocation, updateImage, updateFrame):
 #=============================================================================================================================================
 
 # Function to collect data for training
-def dataCollection(camera, hands, mpDrawing, mpHands, getKeyPress, resetKey, updateFrame):    
+def dataCollection(camera, hands, mpDrawing, mpHands, getKeyPress, resetKey, updateFrame, stopRunning):    
     landmarksCollection = []
     collecting = False
     letter = None
     collectionNumber = 0
     
     while camera.isOpened():
+        if stopRunning():
+            break
+        
         ret, frame = camera.read()
         
         if not ret:
@@ -237,9 +243,9 @@ def createModel():
     model = Sequential([
         Input(shape=(constants.COLLECTION_SNAPSHOTS, constants.HAND_POINTS, constants.COORD_POINTS)),
         Flatten(),
-        Dense(128, activation='relu'),
-        Dropout(0.2),
-        Dense(64, activation='relu'),
+        Dense(128, activation='relu', kernel_regularizer=l2(constants.REGULARIZER)),
+        Dropout(constants.DROPOUT),
+        Dense(64, activation='relu', kernel_regularizer=l2(constants.REGULARIZER)),
         Dense(len(constants.LETTERS), activation='softmax')
     ])
     
