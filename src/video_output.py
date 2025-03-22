@@ -105,11 +105,12 @@ def dataCollection(camera, hands, mpDrawing, mpHands, getKeyPress, resetKey, upd
             resetKey()
 
         if handPresent and not collecting and keyPress:
+            collecting = True
+            
             letter = keyPress
             print(f"Start collecting data for: {letter}")
 
             landmarksCollection = []
-            collecting = True
 
             startTime = time.time()
             endTime = startTime + constants.COLLECTION_LENGTH
@@ -133,8 +134,6 @@ def dataCollection(camera, hands, mpDrawing, mpHands, getKeyPress, resetKey, upd
                     nextCaptureTime += interval
 
                 if currentTime >= endTime or frameCount >= constants.COLLECTION_SNAPSHOTS:
-                    collecting = False
-
                     if len(landmarksCollection) < constants.COLLECTION_SNAPSHOTS:
                         landmarksCollection = interpolateSnapshots(landmarksCollection)
                     elif len(landmarksCollection) > constants.COLLECTION_SNAPSHOTS:
@@ -144,7 +143,8 @@ def dataCollection(camera, hands, mpDrawing, mpHands, getKeyPress, resetKey, upd
                     resetKey()
 
                     print(f"Captured {letter} collection {collectionNumber}: {len(landmarksCollection)} snapshots stored in SQLite.")
-
+                    collecting = False
+                    
         updateFrame(frame)
 
 #=============================================================================================================================================

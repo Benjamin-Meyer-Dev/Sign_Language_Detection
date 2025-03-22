@@ -31,6 +31,6 @@ LETTER_EXAMPELS_PATH = "../images/Letter Examples"
 MODEL_PATH = "../model/sign_language_model.keras"
 PROGRAM_ICON_PATH = "../images/program_icon.svg"
 
-LETTERS = {i: letter for i, letter in enumerate(string.ascii_uppercase[:15])}
+LETTERS = {i: letter for i, letter in enumerate(string.ascii_uppercase[:19])}
 
 #=============================================================================================================================================

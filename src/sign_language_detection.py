@@ -354,7 +354,7 @@ class SignLanguageDetection(QMainWindow):
     
     # Function to update the example and AI guess images
     def updateExampleAIImage(self, letter, imageLabel):
-        if imageLabel is None:
+        if imageLabel is None or imageLabel.isDeleted():
             return
         
         if not letter or not os.path.exists(os.path.join(constants.LETTER_EXAMPELS_PATH, f"{letter.upper()}.png")):
