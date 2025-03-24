@@ -83,8 +83,6 @@ class SignLanguageDetection(QMainWindow):
                 '''
             )
             
-            cursor.execute(f"DELETE FROM {letter} WHERE collectionSet > 30")
-            
             cursor.execute(f"SELECT MAX(collectionSet) FROM {letter}")
             lastCollectionSet = cursor.fetchone()[0]
             

@@ -120,36 +120,36 @@ def dataCollection(camera, hands, mpDrawing, mpHands, getKeyPress, resetKey, upd
 
             startTime = time.time()
             endTime = startTime + constants.COLLECTION_LENGTH
+            nextCaptureTime = startTime
 
             collectionNumber = getCollectionCount(letter) + 1
 
             frameCount = 0
             interval = constants.COLLECTION_LENGTH / constants.COLLECTION_SNAPSHOTS
 
-            nextCaptureTime = startTime
+        if collecting:
+            currentTime = time.time()
 
-        if handPresent and collecting:
-            for handLandmarks in results.multi_hand_landmarks:
-                landmarks = np.array([[lm.x, lm.y, lm.z] for lm in handLandmarks.landmark])
+            if currentTime >= endTime or frameCount >= constants.COLLECTION_SNAPSHOTS:
+                if len(landmarksCollection) < constants.COLLECTION_SNAPSHOTS:
+                    landmarksCollection = interpolateSnapshots(landmarksCollection)
+                elif len(landmarksCollection) > constants.COLLECTION_SNAPSHOTS:
+                    landmarksCollection = downsampleSnapshots(landmarksCollection)
 
-                currentTime = time.time()
+                insertLandmarks(letter, landmarksCollection)
+                resetKey()
 
-                if currentTime >= nextCaptureTime:
-                    landmarksCollection.append(landmarks.tolist())
-                    frameCount += 1
-                    nextCaptureTime += interval
+                print(f"Captured {letter} collection {collectionNumber}: {len(landmarksCollection)} snapshots stored in SQLite.")
+                collecting = False
 
-                if currentTime >= endTime or frameCount >= constants.COLLECTION_SNAPSHOTS:
-                    if len(landmarksCollection) < constants.COLLECTION_SNAPSHOTS:
-                        landmarksCollection = interpolateSnapshots(landmarksCollection)
-                    elif len(landmarksCollection) > constants.COLLECTION_SNAPSHOTS:
-                        landmarksCollection = downsampleSnapshots(landmarksCollection)
+            if handPresent:
+                for handLandmarks in results.multi_hand_landmarks:
+                    landmarks = np.array([[lm.x, lm.y, lm.z] for lm in handLandmarks.landmark])
 
-                    insertLandmarks(letter, landmarksCollection)
-                    resetKey()
-
-                    print(f"Captured {letter} collection {collectionNumber}: {len(landmarksCollection)} snapshots stored in SQLite.")
-                    collecting = False
+                    if currentTime >= nextCaptureTime:
+                        landmarksCollection.append(landmarks.tolist())
+                        frameCount += 1
+                        nextCaptureTime += interval
                     
         updateFrame(frame)
 
