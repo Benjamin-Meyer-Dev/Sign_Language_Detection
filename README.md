@@ -7,7 +7,7 @@
 - [How to Run](#how-to-run)
 
 ## General Info
-This is a sign language letter detection tool.
+This is a real-time sign language letter detection tool that uses a trained TensorFlow model to interpret hand gestures into alphabet letters. It utilizes hand landmark data captured via MediaPipe and allows users to either use a pre-trained model or collect and train their own using a built-in interface.
 
 ---
 
