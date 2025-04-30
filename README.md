@@ -3,11 +3,11 @@
 ## Table of contents
 - [General Info](#general-info)
 - [Features](#features)
-- [Tech Stack](#tech-stack)
+- [Technologies Used](#technologies-used)
 - [How to Run](#how-to-run)
 
 ## General Info
-This is a sign language detection tool.
+This is a sign language letter detection tool.
 
 ---
 
@@ -15,8 +15,8 @@ This is a sign language detection tool.
 
 ---
 
-## Tech Stack
-The project is created using the following:
+## Technologies Used
+This project is created using the following technologies:
 
 - **mediapipe** `0.10.9`
 - **numpy** `1.26.4`
