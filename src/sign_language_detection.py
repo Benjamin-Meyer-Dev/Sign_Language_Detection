@@ -26,7 +26,7 @@ class SignLanguageDetection(QMainWindow):
     # Initialization class
     def __init__(self):
         super().__init__()
-        
+                
         with open(constants.GUI_STYLING_PATH, "r") as file:
             self.setStyleSheet(file.read())
         
@@ -153,6 +153,7 @@ class SignLanguageDetection(QMainWindow):
         self.exitButton.setIcon(QIcon(constants.EXIT_ICON_PATH))
         self.exitButton.setIconSize(QSize(constants.EXIT_BUTTON_SIZE - 2, constants.EXIT_BUTTON_SIZE - 2))
         self.exitButton.setFlat(True)
+        self.exitButton.setCursor(Qt.PointingHandCursor)
         self.exitButton.clicked.connect(self.close)
 
     #=============================================================================================================================================
@@ -204,6 +205,8 @@ class SignLanguageDetection(QMainWindow):
         self.dropdownMenu = QComboBox(self.exampleWindow)
         self.dropdownMenu.addItems(constants.LETTERS.values())
         self.dropdownMenu.setFocusPolicy(Qt.NoFocus)
+        self.dropdownMenu.setCursor(Qt.PointingHandCursor)
+        self.dropdownMenu.view().setCursor(Qt.PointingHandCursor)
         self.dropdownMenu.currentIndexChanged.connect(lambda: self.updateExampleAIImage(self.dropdownMenu.currentText(), self.exampleImage))
 
         self.updateExampleAIImage(self.dropdownMenu.currentText(), self.exampleImage)

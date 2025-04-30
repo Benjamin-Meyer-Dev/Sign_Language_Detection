@@ -1,3 +1,4 @@
+import os
 import string
 
 #=============================================================================================================================================
@@ -26,12 +27,13 @@ ENTER_KEYCODE = 16777220
 
 WEBCAM_UPDATE = 60
 
-DATABASE_PATH = "../database/sign_language.db"
-EXIT_ICON_PATH = "../images/exit_icon.svg"
-GUI_STYLING_PATH = "./qss/gui.qss"
-LETTER_EXAMPELS_PATH = "../images/Letter Examples"
-MODEL_PATH = "../model/sign_language_model.keras"
-PROGRAM_ICON_PATH = "../images/program_icon.svg"
+BASE_PATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DATABASE_PATH = os.path.join(BASE_PATH,  "database", "sign_language.db")
+EXIT_ICON_PATH = os.path.join(BASE_PATH, "images", "exit_icon.svg")
+GUI_STYLING_PATH = os.path.join(BASE_PATH, "src", "styles", "gui.qss")
+LETTER_EXAMPELS_PATH = os.path.join(BASE_PATH, "images", "Letter Examples")
+MODEL_PATH = os.path.join(BASE_PATH, "model", "sign_language_model.keras")
+PROGRAM_ICON_PATH = os.path.join(BASE_PATH, "images", "program_icon.svg")
 
 LETTERS = {i: letter for i, letter in enumerate(string.ascii_uppercase)}
 
