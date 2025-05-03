@@ -37,7 +37,7 @@ This project is created using the following technologies:
 ## How to Run
 Follow the steps below to run the project:
 
-1. Clone the Repository
+1. **Clone the Repository**
 ```
 $ git clone https://github.com/Benjamin-Meyer-Dev/Sign_Language_Detection.git
 $ cd Sign_Langauge_Detection
