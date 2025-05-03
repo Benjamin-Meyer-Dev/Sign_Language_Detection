@@ -43,22 +43,22 @@ $ git clone https://github.com/Benjamin-Meyer-Dev/Sign_Language_Detection.git
 $ cd Sign_Langauge_Detection
 ```
 
-2. Create and Activate a Virtual Environment (recommended but not required)
+2. **Create and Activate a Virtual Environment** (recommended but not required)
 ```
 $ python -m venv venv
 $ source venv/bin/activate
 ```
 
-3. Install Dependencies
+3. **Install Dependencies**
 ```
 $ pip install -r requirements.txt
 ```
 
-4. Run the Application
+4. **Run the Application**
 ```
 $ cd src
 $ python sign_language_detection.py
 ```
 
-Note:
+**Note:**
 To collect your own training data and train a custom model, delete the `sign_language_model.keras` file located in the `/model` directory before running the application. When no pre-trained model is found, the app will automatically enable the data collection and training interface.
