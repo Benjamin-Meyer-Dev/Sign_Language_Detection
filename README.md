@@ -40,11 +40,13 @@ Follow the steps below to run the project:
 1. Clone the Repository
 ```
 $ git clone
+$ cd 
 ```
 
-2. Create a Virtual Environment
+2. Create and Activate a Virtual Environment (recommended but not required)
 ```
 $ python -m venv venv
+$ source venv/bin/activate
 ```
 
 3. Install Dependencies
