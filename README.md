@@ -39,8 +39,8 @@ Follow the steps below to run the project:
 
 1. Clone the Repository
 ```
-$ git clone
-$ cd 
+$ git clone https://github.com/Benjamin-Meyer-Dev/Sign_Language_Detection.git
+$ cd Sign_Langauge_Detection
 ```
 
 2. Create and Activate a Virtual Environment (recommended but not required)
