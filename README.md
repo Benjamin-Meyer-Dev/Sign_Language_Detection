@@ -15,9 +15,9 @@ This is a real-time sign language letter detection tool that uses a trained Tens
 
 - Predicts sign language alphabet letters using hand position data.
 - Custom UI with a camera feed, letter examples and an AI guess section.
-- SQLite database that houses the pre-trained model training data.
-- User has the option to create a custom model by deleting the pre-trained one and collecting their own data using a varied UI.
-- Flexibility around cameras of varying frame rates, and different amount of training data per letter.
+- SQLite database that stores the pre-trained model's training data.
+- Option to delete the pre-trained model and create a custom model by collecting your own training data.
+- Works with cameras of various frame rates and supports varied amounts of training data per letter.
 
 ---
 
@@ -35,3 +35,12 @@ This project is created using the following technologies:
 ---
 
 ## How to Run
+Follow the steps below to run the project:
+
+1. Clone the Repository
+2. Create a Virtual Environment
+3. Install Dependencies
+4. Run the Application
+
+Note:
+- To gather your own training data and create your own model, simply delete the current model out of the "/model" folder before running the application.
