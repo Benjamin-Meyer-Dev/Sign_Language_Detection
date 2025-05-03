@@ -41,7 +41,6 @@ Follow the steps below to run the project:
 ```
 $ git clone
 ```
-
 2. Create a Virtual Environment
 ```
 $ python -m venv venv
