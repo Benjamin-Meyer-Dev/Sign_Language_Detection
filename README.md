@@ -38,6 +38,9 @@ This project is created using the following technologies:
 Follow the steps below to run the project:
 
 1. Clone the Repository
+```
+$ git clone
+'''
 2. Create a Virtual Environment
 3. Install Dependencies
 4. Run the Application
