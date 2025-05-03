@@ -41,13 +41,21 @@ Follow the steps below to run the project:
 ```
 $ git clone
 ```
+
 2. Create a Virtual Environment
 ```
 $ python -m venv venv
 ```
 
 3. Install Dependencies
+```
+$ pip install -r requirements.txt
+```
+
 4. Run the Application
+```
+$ python sign_language.py
+```
 
 Note:
 To collect your own training data and train a custom model, delete the `sign_language_model.keras` file located in the `/model` directory before running the application. When no pre-trained model is found, the app will automatically enable the data collection and training interface.
