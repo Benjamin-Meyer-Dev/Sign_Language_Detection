@@ -54,7 +54,8 @@ $ pip install -r requirements.txt
 
 4. Run the Application
 ```
-$ python sign_language.py
+$ cd src
+$ python sign_language_detection.py
 ```
 
 Note:
