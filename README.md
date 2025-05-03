@@ -43,4 +43,4 @@ Follow the steps below to run the project:
 4. Run the Application
 
 Note:
-To collect your own training data and train a custom model, delete the sign_language_model.keras file located in the /model directory before running the application. When no pre-trained model is found, the app will automatically enable the data collection and training interface.
+To collect your own training data and train a custom model, delete the `sign_language_model.keras` file located in the `/model` directory before running the application. When no pre-trained model is found, the app will automatically enable the data collection and training interface.
