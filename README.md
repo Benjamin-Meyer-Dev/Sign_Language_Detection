@@ -39,25 +39,19 @@ Follow the steps below to run the project:
 
 1. **Clone the Repository**
 ```
-$ git clone https://github.com/Benjamin-Meyer-Dev/Sign_Language_Detection.git
-$ cd Sign_Langauge_Detection
+git clone https://github.com/Benjamin-Meyer-Dev/Sign_Language_Detection.git
+cd Sign_Langauge_Detection
 ```
 
-2. **Create and Activate a Virtual Environment** (recommended but not required)
+2. **Install Dependencies**
 ```
-$ python -m venv venv
-$ source venv/bin/activate
-```
-
-3. **Install Dependencies**
-```
-$ pip install -r requirements.txt
+pip install -r requirements.txt --progress-bar on --verbose
 ```
 
-4. **Run the Application**
+3. **Run the Application**
 ```
-$ cd src
-$ python sign_language_detection.py
+cd src
+python sign_language_detection.py
 ```
 
 ---
