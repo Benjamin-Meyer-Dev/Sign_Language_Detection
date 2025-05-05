@@ -9,6 +9,8 @@
 ## General Info
 This is a real-time sign language letter detection tool that uses a trained TensorFlow model to interpret hand gestures into alphabet letters. It utilizes hand landmark data captured via MediaPipe and allows users to either use a pre-trained model or collect and train their own using a built-in interface.
 
+Please note that additional training data needs to be incorporated into the pre-trained model to improve accuracy, especially when distinguishing between letters with similar shapes.
+
 ---
 
 ## Features
@@ -69,5 +71,3 @@ python sign_language_detection.py
 
 ### Note:
 To collect your own training data and train a custom model, delete the `sign_language_model.keras` file located in the `/model` directory before running the application. When no pre-trained model is found, the app will automatically enable the data collection and training interface.
-
-Please note that additional training data needs to be incorporated into the pre-trained model to improve accuracy, especially when distinguishing between letters with similar shapes.
