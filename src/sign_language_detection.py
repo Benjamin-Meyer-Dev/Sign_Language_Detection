@@ -70,6 +70,8 @@ class SignLanguageDetection(QMainWindow):
     
     # Function to initialize the database if needed
     def initializeDatabase(self):
+        os.makedirs(os.path.dirname(constants.DATABASE_PATH), exist_ok=True)
+        
         conn = sqlite3.connect(constants.DATABASE_PATH)
         cursor = conn.cursor()
 
