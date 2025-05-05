@@ -44,7 +44,9 @@ python --version
 pip --version
 git --version
 ```   
-If any of these commands return an error, you'll need to install the missing tools.
+  If any of these commands return an error, you'll need to install the missing tools.
+  - Python and pip
+  - Git
 
 2. **Clone the Repository**
 ```
