@@ -44,9 +44,9 @@ python --version
 pip --version
 git --version
 ```   
-  If any of these commands return an error, you'll need to install the missing tools.
-  - [Python and pip](https://www.python.org/downloads/)
-  - [Git](https://git-scm.com/downloads)
+&nbsp;&nbsp;&nbsp;If any of these commands return an error, you will need to install the missing tools:
+- [Python and pip](https://www.python.org/downloads/)
+- [Git](https://git-scm.com/downloads)
 
 2. **Clone the Repository**
 ```
