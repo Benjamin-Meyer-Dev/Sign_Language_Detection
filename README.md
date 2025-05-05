@@ -1,5 +1,9 @@
 # Sign Language Letter Detection
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Benjamin-Meyer-Dev/Sign_Language_Detection/main/src/images/UI.png" alt="UI" />
+</p>
+
 ## Table of contents
 - [General Info](#general-info)
 - [Features](#features)
