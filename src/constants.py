@@ -27,10 +27,10 @@ ENTER_KEYCODE = 16777220
 
 WEBCAM_UPDATE = 60
 
-BASE_PATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DATABASE_PATH = os.path.join(BASE_PATH,  "database", "sign_language.db")
+BASE_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "src")
+DATABASE_PATH = os.path.join(BASE_PATH, "database", "sign_language.db")
 EXIT_ICON_PATH = os.path.join(BASE_PATH, "images", "exit_icon.svg")
-GUI_STYLING_PATH = os.path.join(BASE_PATH, "src", "styles", "gui.qss")
+GUI_STYLING_PATH = os.path.join(BASE_PATH, "styles", "gui.qss")
 LETTER_EXAMPELS_PATH = os.path.join(BASE_PATH, "images", "Letter Examples")
 MODEL_PATH = os.path.join(BASE_PATH, "model", "sign_language_model.keras")
 PROGRAM_ICON_PATH = os.path.join(BASE_PATH, "images", "program_icon.svg")
