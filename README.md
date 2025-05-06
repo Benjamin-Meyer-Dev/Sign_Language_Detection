@@ -43,7 +43,7 @@ This project is created using the following technologies:
 ## How to Run
 Follow the steps below to run the project using Command Prompt:
 
-1. **Check for Required Tools**
+**1. Check for Required Tools**
 
    - Open Command Prompt (`Win + R`, then type `cmd` and press `Enter`), and run the following commands to check if the required tools are installed:<br><br>
   
@@ -57,20 +57,20 @@ Follow the steps below to run the project using Command Prompt:
        - [Python and pip](https://www.python.org/downloads/)
        - [Git](https://git-scm.com/downloads)
 
-2. **Clone the Repository**
+**2. Clone the Repository**
 
     ```
     git clone https://github.com/Benjamin-Meyer-Dev/Sign_Language_Detection.git
     cd Sign_Langauge_Detection
     ```
 
-3. **Install Dependencies**
+**3. Install Dependencies**
 
     ```
     pip install -r requirements.txt --progress-bar on --verbose
     ```
 
-4. **Run the Application**
+**4. Run the Application**
    
     ```
     cd src
